@@ -125,71 +125,71 @@ export function HomePage() {
   }
 
   return (
-    <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6">
-      <div className="grid grid-cols-1 gap-8 lg:grid-cols-12">
-        {/* Left Sidebar: All content of the active day */}
-        <aside className="lg:col-span-4 xl:col-span-3">
-          <div className="sticky top-24 rounded-2xl border border-zinc-800 bg-zinc-900/80 p-4">
-            <div className="mb-3 flex items-center justify-between border-b border-zinc-800 pb-3">
-              <div className="flex items-center gap-2">
-                <Layers className="h-4 w-4 text-emerald-400" />
-                <h2 className="text-xs font-semibold tracking-wider text-zinc-300 uppercase">
-                  Day {activeDay.dayNumber} Contents
-                </h2>
-              </div>
-              {activeDay.isLocked ? (
-                <span className="inline-flex items-center gap-1 rounded-full bg-amber-950/80 px-2 py-0.5 text-xs font-medium text-amber-300">
-                  <Lock className="h-3 w-3" />
-                  Locked
-                </span>
-              ) : (
-                <span className="rounded-full bg-emerald-950 px-2 py-0.5 text-xs font-medium text-emerald-300">
-                  {activeDay.resources.length}
-                </span>
-              )}
+    <div className="flex min-h-[calc(100vh-7rem)] flex-col md:flex-row">
+      {/* Left Sidebar: All content of the active day */}
+      <aside className="w-full shrink-0 border-b border-zinc-800/80 bg-zinc-900/40 p-4 md:w-72 md:border-r md:border-b-0 lg:w-80">
+        <div className="md:sticky md:top-20">
+          <div className="mb-3 flex items-center justify-between border-b border-zinc-800 pb-3">
+            <div className="flex items-center gap-2">
+              <Layers className="h-4 w-4 text-emerald-400" />
+              <h2 className="text-xs font-semibold tracking-wider text-zinc-300 uppercase">
+                Day {activeDay.dayNumber} Contents
+              </h2>
             </div>
-
             {activeDay.isLocked ? (
-              <p className="py-2 text-xs text-zinc-500 italic">
-                Enter the day password to view materials.
-              </p>
-            ) : activeDay.resources.length === 0 ? (
-              <p className="py-2 text-xs text-zinc-500 italic">
-                No materials posted for this day yet.
-              </p>
+              <span className="inline-flex items-center gap-1 rounded-full bg-amber-950/80 px-2 py-0.5 text-xs font-medium text-amber-300">
+                <Lock className="h-3 w-3" />
+                Locked
+              </span>
             ) : (
-              <ul className="space-y-1">
-                {activeDay.resources.map((res, idx) => (
-                  <li key={res.id}>
-                    <a
-                      href={`#resource-${res.id}`}
-                      onClick={() => {
-                        setSelectedType("ALL");
-                        setSearch("");
-                      }}
-                      className="group flex items-start gap-2.5 rounded-xl px-2.5 py-2 text-sm transition hover:bg-zinc-800/80"
-                    >
-                      <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-md bg-zinc-800 text-[11px] font-medium text-zinc-400 group-hover:bg-emerald-900/80 group-hover:text-emerald-200">
-                        {idx + 1}
-                      </span>
-                      <div className="min-w-0 flex-1">
-                        <p className="truncate font-medium text-zinc-200 group-hover:text-emerald-300">
-                          {res.title}
-                        </p>
-                        <p className="text-[11px] text-zinc-500">
-                          {RESOURCE_TYPE_LABELS[res.type]}
-                        </p>
-                      </div>
-                    </a>
-                  </li>
-                ))}
-              </ul>
+              <span className="rounded-full bg-emerald-950 px-2 py-0.5 text-xs font-medium text-emerald-300">
+                {activeDay.resources.length}
+              </span>
             )}
           </div>
-        </aside>
 
-        {/* Main Content: Active Day Details + Resources */}
-        <div className="space-y-6 lg:col-span-8 xl:col-span-9">
+          {activeDay.isLocked ? (
+            <p className="py-2 text-xs text-zinc-500 italic">
+              Enter the day password to view materials.
+            </p>
+          ) : activeDay.resources.length === 0 ? (
+            <p className="py-2 text-xs text-zinc-500 italic">
+              No materials posted for this day yet.
+            </p>
+          ) : (
+            <ul className="space-y-1">
+              {activeDay.resources.map((res, idx) => (
+                <li key={res.id}>
+                  <a
+                    href={`#resource-${res.id}`}
+                    onClick={() => {
+                      setSelectedType("ALL");
+                      setSearch("");
+                    }}
+                    className="group flex items-start gap-2.5 rounded-xl px-2.5 py-2 text-sm transition hover:bg-zinc-800/80"
+                  >
+                    <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-md bg-zinc-800 text-[11px] font-medium text-zinc-400 group-hover:bg-emerald-900/80 group-hover:text-emerald-200">
+                      {idx + 1}
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate font-medium text-zinc-200 group-hover:text-emerald-300">
+                        {res.title}
+                      </p>
+                      <p className="text-[11px] text-zinc-500">
+                        {RESOURCE_TYPE_LABELS[res.type]}
+                      </p>
+                    </div>
+                  </a>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      </aside>
+
+      {/* Main Content: Active Day Details + Resources */}
+      <div className="min-w-0 flex-1 px-4 py-8 sm:px-8">
+        <div className="mx-auto max-w-4xl space-y-6">
           {activeDay.isLocked ? (
             <section className="rounded-2xl border border-zinc-800 bg-zinc-900/90 p-8 sm:p-10">
               <div className="mx-auto max-w-md text-center">
