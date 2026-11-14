@@ -14,6 +14,7 @@ import {
   X,
 } from "lucide-react";
 import {
+  getPublishStatus,
   RESOURCE_TYPES,
   RESOURCE_TYPE_LABELS,
   type DayWithResourcesDTO,
@@ -22,13 +23,17 @@ import {
 } from "@repo/shared";
 import { api } from "../lib/api";
 import { ResourceBadge } from "../components/ResourceBadge";
+import {
+  PublishControl,
+  PublishStatusBadge,
+} from "../components/PublishControl";
 
 interface ResourceFormState {
   title: string;
   description: string;
   type: ResourceType;
   url: string;
-  isPublished: boolean;
+  publishedAt: string | null;
 }
 
 export function AdminDayResourcesPage() {
@@ -46,7 +51,7 @@ export function AdminDayResourcesPage() {
     description: "",
     type: "SLIDES",
     url: "",
-    isPublished: true,
+    publishedAt: new Date().toISOString(),
   });
   const [uploading, setUploading] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -76,7 +81,7 @@ export function AdminDayResourcesPage() {
       description: "",
       type: "SLIDES",
       url: "",
-      isPublished: true,
+      publishedAt: new Date().toISOString(),
     });
     setFormError(null);
     setModalOpen(true);
@@ -89,7 +94,7 @@ export function AdminDayResourcesPage() {
       description: res.description ?? "",
       type: res.type,
       url: res.url,
-      isPublished: res.isPublished,
+      publishedAt: res.publishedAt,
     });
     setFormError(null);
     setModalOpen(true);
@@ -124,7 +129,7 @@ export function AdminDayResourcesPage() {
           description: form.description || null,
           type: form.type,
           url: form.url,
-          isPublished: form.isPublished,
+          publishedAt: form.publishedAt,
         });
       } else {
         const nextOrder =
@@ -137,7 +142,7 @@ export function AdminDayResourcesPage() {
           type: form.type,
           url: form.url,
           order: nextOrder,
-          isPublished: form.isPublished,
+          publishedAt: form.publishedAt,
         });
       }
       setModalOpen(false);
@@ -153,7 +158,10 @@ export function AdminDayResourcesPage() {
 
   const handleTogglePublish = async (res: ResourceDTO) => {
     try {
-      await api.updateResource(res.id, { isPublished: !res.isPublished });
+      const isLive = getPublishStatus(res.publishedAt) === "published";
+      await api.updateResource(res.id, {
+        publishedAt: isLive ? null : new Date().toISOString(),
+      });
       await loadDay();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to update status");
@@ -234,15 +242,7 @@ export function AdminDayResourcesPage() {
             <span className="rounded-md border border-emerald-700/60 bg-emerald-900 px-2.5 py-0.5 text-xs font-semibold text-emerald-100">
               Day {day.dayNumber}
             </span>
-            <span
-              className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${
-                day.isPublished
-                  ? "bg-emerald-950/80 text-emerald-300"
-                  : "bg-amber-950/80 text-amber-300"
-              }`}
-            >
-              {day.isPublished ? "Published" : "Draft"}
-            </span>
+            <PublishStatusBadge publishedAt={day.publishedAt} />
           </div>
           <h1 className="mt-2 text-2xl font-bold text-zinc-100">
             {day.title}
@@ -284,11 +284,7 @@ export function AdminDayResourcesPage() {
                     <span className="font-semibold text-zinc-100">
                       {res.title}
                     </span>
-                    {!res.isPublished && (
-                      <span className="rounded-full bg-amber-950/80 px-2 py-0.5 text-xs font-medium text-amber-300">
-                        Hidden
-                      </span>
-                    )}
+                    <PublishStatusBadge publishedAt={res.publishedAt} />
                   </div>
                   {res.description && (
                     <p className="mt-1 text-sm text-zinc-400">
@@ -328,10 +324,14 @@ export function AdminDayResourcesPage() {
                   <button
                     type="button"
                     onClick={() => handleTogglePublish(res)}
-                    title={res.isPublished ? "Hide" : "Publish"}
+                    title={
+                      getPublishStatus(res.publishedAt) === "published"
+                        ? "Move to Draft"
+                        : "Publish Now"
+                    }
                     className="rounded-lg border border-zinc-700 bg-zinc-900 p-2 text-zinc-300 hover:bg-zinc-800"
                   >
-                    {res.isPublished ? (
+                    {getPublishStatus(res.publishedAt) === "published" ? (
                       <Eye className="h-4 w-4" />
                     ) : (
                       <EyeOff className="h-4 w-4" />
@@ -461,17 +461,12 @@ export function AdminDayResourcesPage() {
                 />
               </div>
 
-              <label className="flex items-center gap-2 text-sm text-zinc-300">
-                <input
-                  type="checkbox"
-                  checked={form.isPublished}
-                  onChange={(e) =>
-                    setForm({ ...form, isPublished: e.target.checked })
-                  }
-                  className="h-4 w-4 rounded border-zinc-700 bg-zinc-950 text-emerald-600"
-                />
-                Published (visible to students)
-              </label>
+              <PublishControl
+                value={form.publishedAt}
+                onChange={(nextIso) =>
+                  setForm({ ...form, publishedAt: nextIso })
+                }
+              />
 
               <div className="flex justify-end gap-2 pt-2">
                 <button

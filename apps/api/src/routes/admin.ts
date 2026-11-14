@@ -8,10 +8,13 @@ import {
   updateDaySchema,
   createResourceSchema,
   updateResourceSchema,
+  createMiniProjectSchema,
+  updateMiniProjectSchema,
 } from "@repo/shared";
 import { db } from "../db/index.js";
-import { days, resources } from "../db/schema.js";
+import { days, resources, miniProjects } from "../db/schema.js";
 import { requireAdmin } from "../middleware/auth.js";
+import { hashDayPassword } from "../lib/dayPassword.js";
 
 export const adminRouter = Router();
 
@@ -37,6 +40,15 @@ const upload = multer({
   limits: { fileSize: 25 * 1024 * 1024 },
 });
 
+function serializeAdminDay<T extends { passwordHash: string | null }>(day: T) {
+  const { passwordHash, ...rest } = day;
+  return {
+    ...rest,
+    hasPassword: Boolean(passwordHash),
+    isLocked: false,
+  };
+}
+
 // List all days (including drafts) with all resources
 adminRouter.get("/days", async (_req, res, next) => {
   try {
@@ -48,7 +60,7 @@ adminRouter.get("/days", async (_req, res, next) => {
         },
       },
     });
-    res.json(allDays);
+    res.json(allDays.map(serializeAdminDay));
   } catch (err) {
     next(err);
   }
@@ -69,7 +81,7 @@ adminRouter.get("/days/:id", async (req, res, next) => {
       res.status(404).json({ error: "Day not found" });
       return;
     }
-    res.json(day);
+    res.json(serializeAdminDay(day));
   } catch (err) {
     next(err);
   }
@@ -87,7 +99,13 @@ adminRouter.post("/days", async (req, res, next) => {
       return;
     }
 
-    const { dayNumber, title, date, summary, isPublished } = parsed.data;
+    const { dayNumber, title, date, summary, publishedAt, password } =
+      parsed.data;
+    const passwordHash =
+      password && password.trim().length > 0
+        ? hashDayPassword(password.trim())
+        : null;
+
     const [created] = await db
       .insert(days)
       .values({
@@ -95,11 +113,12 @@ adminRouter.post("/days", async (req, res, next) => {
         title,
         date: date ? new Date(date) : null,
         summary: summary ?? null,
-        isPublished,
+        passwordHash,
+        publishedAt: publishedAt ? new Date(publishedAt) : null,
       })
       .returning();
 
-    res.status(201).json({ ...created, resources: [] });
+    res.status(201).json({ ...serializeAdminDay(created), resources: [] });
   } catch (err: unknown) {
     if (
       typeof err === "object" &&
@@ -138,8 +157,17 @@ adminRouter.patch("/days/:id", async (req, res, next) => {
       updates.date = parsed.data.date ? new Date(parsed.data.date) : null;
     if (parsed.data.summary !== undefined)
       updates.summary = parsed.data.summary ?? null;
-    if (parsed.data.isPublished !== undefined)
-      updates.isPublished = parsed.data.isPublished;
+    if (parsed.data.publishedAt !== undefined)
+      updates.publishedAt = parsed.data.publishedAt
+        ? new Date(parsed.data.publishedAt)
+        : null;
+    if (parsed.data.password !== undefined) {
+      if (parsed.data.password && parsed.data.password.trim().length > 0) {
+        updates.passwordHash = hashDayPassword(parsed.data.password.trim());
+      } else {
+        updates.passwordHash = null;
+      }
+    }
 
     const [updated] = await db
       .update(days)
@@ -152,7 +180,7 @@ adminRouter.patch("/days/:id", async (req, res, next) => {
       return;
     }
 
-    res.json(updated);
+    res.json(serializeAdminDay(updated));
   } catch (err: unknown) {
     if (
       typeof err === "object" &&
@@ -208,7 +236,7 @@ adminRouter.post("/days/:dayId/resources", async (req, res, next) => {
       return;
     }
 
-    const { title, description, type, url, order, isPublished } = parsed.data;
+    const { title, description, type, url, order, publishedAt } = parsed.data;
     const [created] = await db
       .insert(resources)
       .values({
@@ -218,7 +246,7 @@ adminRouter.post("/days/:dayId/resources", async (req, res, next) => {
         type,
         url,
         order,
-        isPublished,
+        publishedAt: publishedAt ? new Date(publishedAt) : null,
       })
       .returning();
 
@@ -249,8 +277,10 @@ adminRouter.patch("/resources/:id", async (req, res, next) => {
     if (parsed.data.type !== undefined) updates.type = parsed.data.type;
     if (parsed.data.url !== undefined) updates.url = parsed.data.url;
     if (parsed.data.order !== undefined) updates.order = parsed.data.order;
-    if (parsed.data.isPublished !== undefined)
-      updates.isPublished = parsed.data.isPublished;
+    if (parsed.data.publishedAt !== undefined)
+      updates.publishedAt = parsed.data.publishedAt
+        ? new Date(parsed.data.publishedAt)
+        : null;
 
     const [updated] = await db
       .update(resources)
@@ -279,6 +309,187 @@ adminRouter.delete("/resources/:id", async (req, res, next) => {
 
     if (!deleted) {
       res.status(404).json({ error: "Resource not found" });
+      return;
+    }
+
+    res.json({ deleted: true, id: deleted.id });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// List all mini projects (including drafts and scheduled)
+adminRouter.get("/mini-projects", async (_req, res, next) => {
+  try {
+    const rows = await db.query.miniProjects.findMany({
+      orderBy: [asc(miniProjects.order), asc(miniProjects.createdAt)],
+      with: {
+        day: {
+          columns: {
+            id: true,
+            dayNumber: true,
+            title: true,
+          },
+        },
+      },
+    });
+    res.json(rows);
+  } catch (err) {
+    next(err);
+  }
+});
+
+// Get single mini project
+adminRouter.get("/mini-projects/:id", async (req, res, next) => {
+  try {
+    const row = await db.query.miniProjects.findFirst({
+      where: eq(miniProjects.id, req.params.id),
+      with: {
+        day: {
+          columns: {
+            id: true,
+            dayNumber: true,
+            title: true,
+          },
+        },
+      },
+    });
+    if (!row) {
+      res.status(404).json({ error: "Mini project not found" });
+      return;
+    }
+    res.json(row);
+  } catch (err) {
+    next(err);
+  }
+});
+
+// Create a mini project
+adminRouter.post("/mini-projects", async (req, res, next) => {
+  try {
+    const parsed = createMiniProjectSchema.safeParse(req.body);
+    if (!parsed.success) {
+      res.status(400).json({
+        error: "Validation failed",
+        details: parsed.error.flatten().fieldErrors,
+      });
+      return;
+    }
+
+    const d = parsed.data;
+    const [created] = await db
+      .insert(miniProjects)
+      .values({
+        title: d.title,
+        summary: d.summary ?? null,
+        instructions: d.instructions ?? null,
+        milestones: d.milestones ?? [],
+        starterRepoUrl: d.starterRepoUrl || null,
+        demoUrl: d.demoUrl || null,
+        specUrl: d.specUrl || null,
+        solutionUrl: d.solutionUrl || null,
+        attachmentUrl: d.attachmentUrl || null,
+        dayId: d.dayId ?? null,
+        difficulty: d.difficulty,
+        estimatedMinutes: d.estimatedMinutes ?? null,
+        tags: d.tags ?? [],
+        dueDate: d.dueDate ? new Date(d.dueDate) : null,
+        order: d.order,
+        publishedAt: d.publishedAt ? new Date(d.publishedAt) : null,
+      })
+      .returning();
+
+    const withDay = await db.query.miniProjects.findFirst({
+      where: eq(miniProjects.id, created.id),
+      with: {
+        day: {
+          columns: { id: true, dayNumber: true, title: true },
+        },
+      },
+    });
+
+    res.status(201).json(withDay);
+  } catch (err) {
+    next(err);
+  }
+});
+
+// Update a mini project
+adminRouter.patch("/mini-projects/:id", async (req, res, next) => {
+  try {
+    const parsed = updateMiniProjectSchema.safeParse(req.body);
+    if (!parsed.success) {
+      res.status(400).json({
+        error: "Validation failed",
+        details: parsed.error.flatten().fieldErrors,
+      });
+      return;
+    }
+
+    const d = parsed.data;
+    const updates: Record<string, unknown> = {
+      updatedAt: new Date(),
+    };
+    if (d.title !== undefined) updates.title = d.title;
+    if (d.summary !== undefined) updates.summary = d.summary ?? null;
+    if (d.instructions !== undefined)
+      updates.instructions = d.instructions ?? null;
+    if (d.milestones !== undefined) updates.milestones = d.milestones;
+    if (d.starterRepoUrl !== undefined)
+      updates.starterRepoUrl = d.starterRepoUrl || null;
+    if (d.demoUrl !== undefined) updates.demoUrl = d.demoUrl || null;
+    if (d.specUrl !== undefined) updates.specUrl = d.specUrl || null;
+    if (d.solutionUrl !== undefined)
+      updates.solutionUrl = d.solutionUrl || null;
+    if (d.attachmentUrl !== undefined)
+      updates.attachmentUrl = d.attachmentUrl || null;
+    if (d.dayId !== undefined) updates.dayId = d.dayId ?? null;
+    if (d.difficulty !== undefined) updates.difficulty = d.difficulty;
+    if (d.estimatedMinutes !== undefined)
+      updates.estimatedMinutes = d.estimatedMinutes ?? null;
+    if (d.tags !== undefined) updates.tags = d.tags;
+    if (d.dueDate !== undefined)
+      updates.dueDate = d.dueDate ? new Date(d.dueDate) : null;
+    if (d.order !== undefined) updates.order = d.order;
+    if (d.publishedAt !== undefined)
+      updates.publishedAt = d.publishedAt ? new Date(d.publishedAt) : null;
+
+    const [updated] = await db
+      .update(miniProjects)
+      .set(updates)
+      .where(eq(miniProjects.id, req.params.id))
+      .returning();
+
+    if (!updated) {
+      res.status(404).json({ error: "Mini project not found" });
+      return;
+    }
+
+    const withDay = await db.query.miniProjects.findFirst({
+      where: eq(miniProjects.id, updated.id),
+      with: {
+        day: {
+          columns: { id: true, dayNumber: true, title: true },
+        },
+      },
+    });
+
+    res.json(withDay);
+  } catch (err) {
+    next(err);
+  }
+});
+
+// Delete a mini project
+adminRouter.delete("/mini-projects/:id", async (req, res, next) => {
+  try {
+    const [deleted] = await db
+      .delete(miniProjects)
+      .where(eq(miniProjects.id, req.params.id))
+      .returning();
+
+    if (!deleted) {
+      res.status(404).json({ error: "Mini project not found" });
       return;
     }
 

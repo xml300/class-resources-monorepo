@@ -1,10 +1,13 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, type FormEvent } from "react";
 import {
   Calendar,
   ExternalLink,
   FolderOpen,
+  KeyRound,
   Layers,
+  Lock,
   Search,
+  ShieldAlert,
 } from "lucide-react";
 import {
   RESOURCE_TYPES,
@@ -13,11 +16,55 @@ import {
 } from "@repo/shared";
 import { useDays } from "../context/DaysContext";
 import { ResourceBadge } from "../components/ResourceBadge";
+import { api, ApiError } from "../lib/api";
 
 export function HomePage() {
-  const { days, activeDay, loading, error } = useDays();
+  const { days, activeDay, refreshDays, loading, error } = useDays();
   const [search, setSearch] = useState("");
   const [selectedType, setSelectedType] = useState<ResourceType | "ALL">("ALL");
+  const [password, setPassword] = useState("");
+  const [unlocking, setUnlocking] = useState(false);
+  const [unlockError, setUnlockError] = useState<string | null>(null);
+  const [remainingAttempts, setRemainingAttempts] = useState<number | null>(
+    null
+  );
+  const [retryAfterSeconds, setRetryAfterSeconds] = useState<number | null>(
+    null
+  );
+
+  const handleUnlock = async (e: FormEvent) => {
+    e.preventDefault();
+    if (!activeDay) return;
+    setUnlockError(null);
+    setUnlocking(true);
+    try {
+      await api.unlockDay(activeDay.id, password);
+      setPassword("");
+      setRemainingAttempts(null);
+      setRetryAfterSeconds(null);
+      await refreshDays();
+    } catch (err) {
+      if (err instanceof ApiError) {
+        setUnlockError(err.message);
+        setRemainingAttempts(
+          typeof err.remainingAttempts === "number"
+            ? err.remainingAttempts
+            : null
+        );
+        setRetryAfterSeconds(
+          typeof err.retryAfterSeconds === "number"
+            ? err.retryAfterSeconds
+            : null
+        );
+      } else {
+        setUnlockError(
+          err instanceof Error ? err.message : "Failed to unlock day"
+        );
+      }
+    } finally {
+      setUnlocking(false);
+    }
+  };
 
   const filteredResources = useMemo(() => {
     if (!activeDay) return [];
@@ -90,12 +137,23 @@ export function HomePage() {
                   Day {activeDay.dayNumber} Contents
                 </h2>
               </div>
-              <span className="rounded-full bg-emerald-950 px-2 py-0.5 text-xs font-medium text-emerald-300">
-                {activeDay.resources.length}
-              </span>
+              {activeDay.isLocked ? (
+                <span className="inline-flex items-center gap-1 rounded-full bg-amber-950/80 px-2 py-0.5 text-xs font-medium text-amber-300">
+                  <Lock className="h-3 w-3" />
+                  Locked
+                </span>
+              ) : (
+                <span className="rounded-full bg-emerald-950 px-2 py-0.5 text-xs font-medium text-emerald-300">
+                  {activeDay.resources.length}
+                </span>
+              )}
             </div>
 
-            {activeDay.resources.length === 0 ? (
+            {activeDay.isLocked ? (
+              <p className="py-2 text-xs text-zinc-500 italic">
+                Enter the day password to view materials.
+              </p>
+            ) : activeDay.resources.length === 0 ? (
               <p className="py-2 text-xs text-zinc-500 italic">
                 No materials posted for this day yet.
               </p>
@@ -132,6 +190,80 @@ export function HomePage() {
 
         {/* Main Content: Active Day Details + Resources */}
         <div className="space-y-6 lg:col-span-8 xl:col-span-9">
+          {activeDay.isLocked ? (
+            <section className="rounded-2xl border border-zinc-800 bg-zinc-900/90 p-8 sm:p-10">
+              <div className="mx-auto max-w-md text-center">
+                <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl border border-amber-700/60 bg-amber-950/70 text-amber-300">
+                  <Lock className="h-6 w-6" />
+                </div>
+                <div className="mt-4 flex items-center justify-center gap-2">
+                  <span className="inline-flex items-center rounded-md border border-emerald-700/60 bg-emerald-900 px-2.5 py-0.5 text-xs font-semibold text-emerald-100">
+                    Day {activeDay.dayNumber}
+                  </span>
+                  {activeDay.date && (
+                    <span className="inline-flex items-center gap-1 text-xs text-zinc-400">
+                      <Calendar className="h-3.5 w-3.5 text-emerald-400" />
+                      {formatDate(activeDay.date)}
+                    </span>
+                  )}
+                </div>
+                <h1 className="mt-3 text-2xl font-bold tracking-tight text-zinc-100">
+                  {activeDay.title}
+                </h1>
+                <p className="mt-2 text-sm text-zinc-400">
+                  This day&apos;s materials are password-protected. Enter the
+                  class password to unlock them on this device.
+                </p>
+
+                {unlockError && (
+                  <div className="mt-5 flex items-start gap-2.5 rounded-xl border border-red-900/70 bg-red-950/50 p-3.5 text-left text-sm text-red-300">
+                    <ShieldAlert className="mt-0.5 h-4 w-4 shrink-0 text-red-400" />
+                    <div>
+                      <p className="font-medium">{unlockError}</p>
+                      {remainingAttempts !== null && remainingAttempts > 0 && (
+                        <p className="mt-0.5 text-xs text-red-400">
+                          {remainingAttempts}{" "}
+                          {remainingAttempts === 1 ? "attempt" : "attempts"}{" "}
+                          remaining before temporary lockout.
+                        </p>
+                      )}
+                      {retryAfterSeconds !== null && (
+                        <p className="mt-0.5 text-xs text-red-400">
+                          Try again in{" "}
+                          {retryAfterSeconds >= 60
+                            ? `${Math.ceil(retryAfterSeconds / 60)} minute(s)`
+                            : `${retryAfterSeconds} second(s)`}
+                          .
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                <form onSubmit={handleUnlock} className="mt-6 space-y-3">
+                  <div className="relative">
+                    <KeyRound className="pointer-events-none absolute top-1/2 left-3.5 h-4 w-4 -translate-y-1/2 text-zinc-500" />
+                    <input
+                      type="password"
+                      required
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      placeholder="Enter day password..."
+                      className="w-full rounded-xl border border-zinc-700 bg-zinc-950 py-2.5 pr-3.5 pl-10 text-sm text-zinc-100 placeholder:text-zinc-500 focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/25 focus:outline-none"
+                    />
+                  </div>
+                  <button
+                    type="submit"
+                    disabled={unlocking}
+                    className="w-full rounded-xl bg-emerald-800 px-4 py-2.5 text-sm font-semibold text-emerald-50 transition hover:bg-emerald-700 disabled:opacity-50"
+                  >
+                    {unlocking ? "Verifying..." : "Unlock Day"}
+                  </button>
+                </form>
+              </div>
+            </section>
+          ) : (
+            <>
           {/* Active Day Header */}
           <section className="rounded-2xl border border-zinc-800 bg-zinc-900/90 p-6">
             <div className="flex flex-wrap items-center justify-between gap-2">
@@ -240,6 +372,8 @@ export function HomePage() {
                 </a>
               ))}
             </div>
+          )}
+            </>
           )}
         </div>
       </div>

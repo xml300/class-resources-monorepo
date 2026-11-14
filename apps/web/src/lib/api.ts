@@ -1,12 +1,39 @@
 import type {
   CreateDayInput,
+  CreateMiniProjectInput,
   CreateResourceInput,
   DayWithResourcesDTO,
   LoginInput,
+  MiniProjectDTO,
   ResourceDTO,
   UpdateDayInput,
+  UpdateMiniProjectInput,
   UpdateResourceInput,
 } from "@repo/shared";
+
+export class ApiError extends Error {
+  status: number;
+  remainingAttempts?: number;
+  retryAfterSeconds?: number;
+  lockedUntil?: string;
+
+  constructor(
+    message: string,
+    status: number,
+    extra?: {
+      remainingAttempts?: number;
+      retryAfterSeconds?: number;
+      lockedUntil?: string;
+    }
+  ) {
+    super(message);
+    this.name = "ApiError";
+    this.status = status;
+    this.remainingAttempts = extra?.remainingAttempts;
+    this.retryAfterSeconds = extra?.retryAfterSeconds;
+    this.lockedUntil = extra?.lockedUntil;
+  }
+}
 
 async function request<T>(url: string, options?: RequestInit): Promise<T> {
   const res = await fetch(url, {
@@ -20,7 +47,15 @@ async function request<T>(url: string, options?: RequestInit): Promise<T> {
 
   if (!res.ok) {
     const body = await res.json().catch(() => ({}));
-    throw new Error(body.error || `Request failed with status ${res.status}`);
+    throw new ApiError(
+      body.error || `Request failed with status ${res.status}`,
+      res.status,
+      {
+        remainingAttempts: body.remainingAttempts,
+        retryAfterSeconds: body.retryAfterSeconds,
+        lockedUntil: body.lockedUntil,
+      }
+    );
   }
 
   return res.json() as Promise<T>;
@@ -30,6 +65,14 @@ export const api = {
   // Public
   getPublicDays: () => request<DayWithResourcesDTO[]>("/api/days"),
   getPublicDay: (id: string) => request<DayWithResourcesDTO>(`/api/days/${id}`),
+  unlockDay: (id: string, password: string) =>
+    request<{ unlocked: boolean; dayId: string }>(`/api/days/${id}/unlock`, {
+      method: "POST",
+      body: JSON.stringify({ password }),
+    }),
+  getPublicMiniProjects: () => request<MiniProjectDTO[]>("/api/mini-projects"),
+  getPublicMiniProject: (id: string) =>
+    request<MiniProjectDTO>(`/api/mini-projects/${id}`),
 
   // Auth
   getMe: () =>
@@ -78,6 +121,29 @@ export const api = {
     request<{ deleted: boolean; id: string }>(`/api/admin/resources/${id}`, {
       method: "DELETE",
     }),
+
+  // Admin Mini Projects
+  getAdminMiniProjects: () =>
+    request<MiniProjectDTO[]>("/api/admin/mini-projects"),
+  getAdminMiniProject: (id: string) =>
+    request<MiniProjectDTO>(`/api/admin/mini-projects/${id}`),
+  createMiniProject: (data: CreateMiniProjectInput) =>
+    request<MiniProjectDTO>("/api/admin/mini-projects", {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+  updateMiniProject: (id: string, data: UpdateMiniProjectInput) =>
+    request<MiniProjectDTO>(`/api/admin/mini-projects/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify(data),
+    }),
+  deleteMiniProject: (id: string) =>
+    request<{ deleted: boolean; id: string }>(
+      `/api/admin/mini-projects/${id}`,
+      {
+        method: "DELETE",
+      }
+    ),
 
   // Upload
   uploadFile: async (

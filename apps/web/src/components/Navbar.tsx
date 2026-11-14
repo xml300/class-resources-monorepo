@@ -47,56 +47,116 @@ export function Navbar() {
           </div>
         </Link>
 
-        {/* Top-right narrow day-based navigation on student view */}
-        {!isAdminRoute && days.length > 0 && activeDay && (
-          <nav
-            aria-label="Day navigation"
-            className="flex items-center gap-1 rounded-xl border border-zinc-800 bg-zinc-900/90 p-1"
-          >
-            <button
-              type="button"
-              disabled={!prevDay}
-              onClick={() => prevDay && setActiveDayNumber(prevDay.dayNumber)}
-              title={prevDay ? `Day ${prevDay.dayNumber}` : "First day"}
-              className="flex h-7 w-7 items-center justify-center rounded-lg text-zinc-400 transition hover:bg-zinc-800 hover:text-zinc-100 disabled:opacity-30 disabled:hover:bg-transparent"
+        {/* Student navigation */}
+        {!isAdminRoute && (
+          <div className="flex items-center gap-3">
+            <nav
+              aria-label="Primary navigation"
+              className="flex items-center gap-1 rounded-xl border border-zinc-800 bg-zinc-900/70 p-1 text-xs font-medium"
             >
-              <ChevronLeft className="h-4 w-4" />
-            </button>
-
-            <div className="relative flex items-center">
-              <select
-                aria-label="Select class day"
-                value={activeDay.dayNumber}
-                onChange={(e) => setActiveDayNumber(Number(e.target.value))}
-                className="cursor-pointer appearance-none rounded-lg bg-emerald-800 px-3 py-1 text-center text-xs font-medium text-emerald-50 shadow-xs transition hover:bg-emerald-700 focus:outline-none"
+              <Link
+                to="/"
+                className={`rounded-lg px-3 py-1.5 transition ${
+                  location.pathname === "/"
+                    ? "bg-zinc-800 text-zinc-100"
+                    : "text-zinc-400 hover:text-zinc-200"
+                }`}
               >
-                {days.map((day) => (
-                  <option
-                    key={day.id}
-                    value={day.dayNumber}
-                    className="bg-zinc-900 text-zinc-100"
-                  >
-                    Day {day.dayNumber}
-                  </option>
-                ))}
-              </select>
-            </div>
+                Daily Materials
+              </Link>
+              <Link
+                to="/projects"
+                className={`rounded-lg px-3 py-1.5 transition ${
+                  location.pathname.startsWith("/projects")
+                    ? "bg-emerald-800 text-emerald-50"
+                    : "text-zinc-400 hover:text-zinc-200"
+                }`}
+              >
+                Mini Projects
+              </Link>
+            </nav>
 
-            <button
-              type="button"
-              disabled={!nextDay}
-              onClick={() => nextDay && setActiveDayNumber(nextDay.dayNumber)}
-              title={nextDay ? `Day ${nextDay.dayNumber}` : "Last day"}
-              className="flex h-7 w-7 items-center justify-center rounded-lg text-zinc-400 transition hover:bg-zinc-800 hover:text-zinc-100 disabled:opacity-30 disabled:hover:bg-transparent"
-            >
-              <ChevronRight className="h-4 w-4" />
-            </button>
-          </nav>
+            {/* Top-right narrow day-based navigation on daily materials view */}
+            {location.pathname === "/" && days.length > 0 && activeDay && (
+              <nav
+                aria-label="Day navigation"
+                className="flex items-center gap-1 rounded-xl border border-zinc-800 bg-zinc-900/90 p-1"
+              >
+                <button
+                  type="button"
+                  disabled={!prevDay}
+                  onClick={() =>
+                    prevDay && setActiveDayNumber(prevDay.dayNumber)
+                  }
+                  title={prevDay ? `Day ${prevDay.dayNumber}` : "First day"}
+                  className="flex h-7 w-7 items-center justify-center rounded-lg text-zinc-400 transition hover:bg-zinc-800 hover:text-zinc-100 disabled:opacity-30 disabled:hover:bg-transparent"
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                </button>
+
+                <div className="relative flex items-center">
+                  <select
+                    aria-label="Select class day"
+                    value={activeDay.dayNumber}
+                    onChange={(e) => setActiveDayNumber(Number(e.target.value))}
+                    className="cursor-pointer appearance-none rounded-lg bg-emerald-800 px-3 py-1 text-center text-xs font-medium text-emerald-50 shadow-xs transition hover:bg-emerald-700 focus:outline-none"
+                  >
+                    {days.map((day) => (
+                      <option
+                        key={day.id}
+                        value={day.dayNumber}
+                        className="bg-zinc-900 text-zinc-100"
+                      >
+                        Day {day.dayNumber}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <button
+                  type="button"
+                  disabled={!nextDay}
+                  onClick={() =>
+                    nextDay && setActiveDayNumber(nextDay.dayNumber)
+                  }
+                  title={nextDay ? `Day ${nextDay.dayNumber}` : "Last day"}
+                  className="flex h-7 w-7 items-center justify-center rounded-lg text-zinc-400 transition hover:bg-zinc-800 hover:text-zinc-100 disabled:opacity-30 disabled:hover:bg-transparent"
+                >
+                  <ChevronRight className="h-4 w-4" />
+                </button>
+              </nav>
+            )}
+          </div>
         )}
 
         {/* Admin route controls only */}
         {isAdminRoute && (
-          <nav className="flex items-center gap-2.5">
+          <nav className="flex items-center gap-2">
+            {authenticated && (
+              <>
+                <Link
+                  to="/admin"
+                  className={`rounded-lg px-3 py-1.5 text-sm font-medium transition ${
+                    location.pathname === "/admin" ||
+                    location.pathname.startsWith("/admin/days")
+                      ? "bg-zinc-800 text-zinc-100"
+                      : "text-zinc-400 hover:bg-zinc-800/60 hover:text-zinc-100"
+                  }`}
+                >
+                  Days
+                </Link>
+                <Link
+                  to="/admin/projects"
+                  className={`rounded-lg px-3 py-1.5 text-sm font-medium transition ${
+                    location.pathname.startsWith("/admin/projects")
+                      ? "bg-emerald-900/80 text-emerald-100"
+                      : "text-zinc-400 hover:bg-zinc-800/60 hover:text-zinc-100"
+                  }`}
+                >
+                  Mini Projects
+                </Link>
+              </>
+            )}
             <Link
               to="/"
               className="rounded-lg px-3 py-1.5 text-sm font-medium text-zinc-300 transition hover:bg-zinc-800 hover:text-zinc-100"

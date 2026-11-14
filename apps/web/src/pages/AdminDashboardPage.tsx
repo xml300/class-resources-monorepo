@@ -5,20 +5,27 @@ import {
   Eye,
   EyeOff,
   FolderCog,
+  Lock,
   Pencil,
   Plus,
   Trash2,
   X,
 } from "lucide-react";
-import type { DayWithResourcesDTO } from "@repo/shared";
+import { getPublishStatus, type DayWithResourcesDTO } from "@repo/shared";
 import { api } from "../lib/api";
+import {
+  PublishControl,
+  PublishStatusBadge,
+} from "../components/PublishControl";
 
 interface DayFormState {
   dayNumber: number;
   title: string;
   date: string;
   summary: string;
-  isPublished: boolean;
+  publishedAt: string | null;
+  password: string;
+  clearPassword: boolean;
 }
 
 export function AdminDashboardPage() {
@@ -35,7 +42,9 @@ export function AdminDashboardPage() {
     title: "",
     date: "",
     summary: "",
-    isPublished: true,
+    publishedAt: new Date().toISOString(),
+    password: "",
+    clearPassword: false,
   });
   const [formError, setFormError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -65,7 +74,9 @@ export function AdminDashboardPage() {
       title: "",
       date: "",
       summary: "",
-      isPublished: true,
+      publishedAt: new Date().toISOString(),
+      password: "",
+      clearPassword: false,
     });
     setFormError(null);
     setModalOpen(true);
@@ -78,7 +89,9 @@ export function AdminDashboardPage() {
       title: day.title,
       date: day.date ? day.date.slice(0, 10) : "",
       summary: day.summary ?? "",
-      isPublished: day.isPublished,
+      publishedAt: day.publishedAt,
+      password: "",
+      clearPassword: false,
     });
     setFormError(null);
     setModalOpen(true);
@@ -89,18 +102,23 @@ export function AdminDashboardPage() {
     setFormError(null);
     setSaving(true);
     try {
-      const payload = {
+      const payload: Record<string, unknown> = {
         dayNumber: Number(form.dayNumber),
         title: form.title,
         date: form.date ? new Date(form.date).toISOString() : null,
         summary: form.summary || null,
-        isPublished: form.isPublished,
+        publishedAt: form.publishedAt,
       };
+      if (form.clearPassword) {
+        payload.password = null;
+      } else if (form.password.trim().length > 0) {
+        payload.password = form.password.trim();
+      }
 
       if (editingDay) {
         await api.updateDay(editingDay.id, payload);
       } else {
-        await api.createDay(payload);
+        await api.createDay(payload as Parameters<typeof api.createDay>[0]);
       }
       setModalOpen(false);
       await loadDays();
@@ -113,7 +131,10 @@ export function AdminDashboardPage() {
 
   const handleTogglePublish = async (day: DayWithResourcesDTO) => {
     try {
-      await api.updateDay(day.id, { isPublished: !day.isPublished });
+      const isLive = getPublishStatus(day.publishedAt) === "published";
+      await api.updateDay(day.id, {
+        publishedAt: isLive ? null : new Date().toISOString(),
+      });
       await loadDays();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to update status");
@@ -187,15 +208,13 @@ export function AdminDashboardPage() {
                     <span className="inline-flex items-center rounded-md border border-emerald-700/60 bg-emerald-900 px-2.5 py-0.5 text-xs font-semibold text-emerald-100">
                       Day {day.dayNumber}
                     </span>
-                    <span
-                      className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium ${
-                        day.isPublished
-                          ? "bg-emerald-950/80 text-emerald-300"
-                          : "bg-amber-950/80 text-amber-300"
-                      }`}
-                    >
-                      {day.isPublished ? "Published" : "Draft"}
-                    </span>
+                    <PublishStatusBadge publishedAt={day.publishedAt} />
+                    {day.hasPassword && (
+                      <span className="inline-flex items-center gap-1 rounded-full border border-amber-800/70 bg-amber-950/70 px-2.5 py-0.5 text-xs font-medium text-amber-300">
+                        <Lock className="h-3 w-3" />
+                        Protected
+                      </span>
+                    )}
                     {day.date && (
                       <span className="inline-flex items-center gap-1 text-xs text-zinc-400">
                         <Calendar className="h-3.5 w-3.5" />
@@ -229,10 +248,14 @@ export function AdminDashboardPage() {
                   <button
                     type="button"
                     onClick={() => handleTogglePublish(day)}
-                    title={day.isPublished ? "Unpublish" : "Publish"}
+                    title={
+                      getPublishStatus(day.publishedAt) === "published"
+                        ? "Move to Draft"
+                        : "Publish Now"
+                    }
                     className="rounded-lg border border-zinc-700 bg-zinc-900 p-2 text-zinc-300 hover:bg-zinc-800"
                   >
-                    {day.isPublished ? (
+                    {getPublishStatus(day.publishedAt) === "published" ? (
                       <Eye className="h-4 w-4" />
                     ) : (
                       <EyeOff className="h-4 w-4" />
@@ -345,17 +368,49 @@ export function AdminDashboardPage() {
                 />
               </div>
 
-              <label className="flex items-center gap-2 text-sm text-zinc-300">
+              <PublishControl
+                value={form.publishedAt}
+                onChange={(nextIso) =>
+                  setForm({ ...form, publishedAt: nextIso })
+                }
+              />
+
+              <div className="space-y-2 rounded-xl border border-zinc-800 bg-zinc-950/70 p-3">
+                <label className="block text-xs font-medium text-zinc-300">
+                  Access Password (optional)
+                </label>
                 <input
-                  type="checkbox"
-                  checked={form.isPublished}
+                  type="password"
+                  disabled={form.clearPassword}
+                  value={form.password}
                   onChange={(e) =>
-                    setForm({ ...form, isPublished: e.target.checked })
+                    setForm({ ...form, password: e.target.value })
                   }
-                  className="h-4 w-4 rounded border-zinc-700 bg-zinc-950 text-emerald-600"
+                  placeholder={
+                    editingDay?.hasPassword
+                      ? "Leave blank to keep existing password"
+                      : "Set a password to lock this day..."
+                  }
+                  className="w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-1.5 text-sm text-zinc-100 placeholder:text-zinc-500 focus:border-emerald-600 focus:outline-none disabled:opacity-50"
                 />
-                Published (visible to students)
-              </label>
+                {editingDay?.hasPassword && (
+                  <label className="flex items-center gap-2 text-xs text-zinc-400">
+                    <input
+                      type="checkbox"
+                      checked={form.clearPassword}
+                      onChange={(e) =>
+                        setForm({
+                          ...form,
+                          clearPassword: e.target.checked,
+                          password: e.target.checked ? "" : form.password,
+                        })
+                      }
+                      className="h-3.5 w-3.5 rounded border-zinc-700 bg-zinc-900 text-emerald-600"
+                    />
+                    Remove password protection
+                  </label>
+                )}
+              </div>
 
               <div className="flex justify-end gap-2 pt-2">
                 <button

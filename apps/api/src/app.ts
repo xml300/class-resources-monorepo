@@ -7,6 +7,7 @@ import cookieParser from "cookie-parser";
 import { env } from "./env.js";
 import { authRouter } from "./routes/auth.js";
 import { daysRouter } from "./routes/days.js";
+import { miniProjectsRouter } from "./routes/miniProjects.js";
 import { adminRouter } from "./routes/admin.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -32,6 +33,7 @@ export function createApp() {
 
   app.use("/api/auth", authRouter);
   app.use("/api/days", daysRouter);
+  app.use("/api/mini-projects", miniProjectsRouter);
   app.use("/api/admin", adminRouter);
 
   // Serve built Vite frontend from backend when available

@@ -1,5 +1,6 @@
 import {
   createContext,
+  useCallback,
   useContext,
   useEffect,
   useState,
@@ -13,6 +14,7 @@ interface DaysContextValue {
   days: DayWithResourcesDTO[];
   activeDay: DayWithResourcesDTO | null;
   setActiveDayNumber: (dayNumber: number) => void;
+  refreshDays: () => Promise<void>;
   loading: boolean;
   error: string | null;
 }
@@ -25,15 +27,18 @@ export function DaysProvider({ children }: { children: ReactNode }) {
   const [error, setError] = useState<string | null>(null);
   const [searchParams, setSearchParams] = useSearchParams();
 
-  useEffect(() => {
-    api
-      .getPublicDays()
-      .then((data) => {
-        setDays(data);
-      })
-      .catch((err) => setError(err.message))
-      .finally(() => setLoading(false));
+  const refreshDays = useCallback(async () => {
+    try {
+      const data = await api.getPublicDays();
+      setDays(data);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to load days");
+    }
   }, []);
+
+  useEffect(() => {
+    refreshDays().finally(() => setLoading(false));
+  }, [refreshDays]);
 
   const dayParam = Number(searchParams.get("day"));
   const activeDay =
@@ -45,7 +50,14 @@ export function DaysProvider({ children }: { children: ReactNode }) {
 
   return (
     <DaysContext.Provider
-      value={{ days, activeDay, setActiveDayNumber, loading, error }}
+      value={{
+        days,
+        activeDay,
+        setActiveDayNumber,
+        refreshDays,
+        loading,
+        error,
+      }}
     >
       {children}
     </DaysContext.Provider>

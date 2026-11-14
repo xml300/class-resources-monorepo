@@ -7,10 +7,18 @@ import {
   extractToken,
   verifyAdminToken,
 } from "../middleware/auth.js";
+import { createRateLimiter } from "../middleware/rateLimit.js";
 
 export const authRouter = Router();
 
-authRouter.post("/login", (req, res) => {
+const loginRateLimiter = createRateLimiter({
+  windowMs: 60 * 1000,
+  max: 15,
+  keyPrefix: "auth-login",
+  message: "Too many login attempts. Please wait a minute and try again.",
+});
+
+authRouter.post("/login", loginRateLimiter, (req, res) => {
   const parsed = loginSchema.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({
