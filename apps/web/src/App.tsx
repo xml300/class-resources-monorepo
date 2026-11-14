@@ -4,6 +4,8 @@ import { AuthProvider } from "./context/AuthContext";
 import { DaysProvider } from "./context/DaysContext";
 import { Navbar } from "./components/Navbar";
 import { ProtectedRoute } from "./components/ProtectedRoute";
+import { StudentLayout } from "./layouts/StudentLayout";
+import { AdminLayout } from "./layouts/AdminLayout";
 import { HomePage } from "./pages/HomePage";
 
 const ProjectsPage = lazy(() =>
@@ -51,34 +53,34 @@ export function App() {
             <main>
               <Suspense fallback={<RouteFallback />}>
                 <Routes>
-                  <Route path="/" element={<HomePage />} />
-                  <Route path="/projects" element={<ProjectsPage />} />
-                  <Route path="/projects/:id" element={<ProjectDetailPage />} />
+                  <Route element={<StudentLayout />}>
+                    <Route path="/" element={<HomePage />} />
+                    <Route path="/projects" element={<ProjectsPage />} />
+                    <Route
+                      path="/projects/:id"
+                      element={<ProjectDetailPage />}
+                    />
+                  </Route>
+
                   <Route path="/admin/login" element={<AdminLoginPage />} />
+
                   <Route
-                    path="/admin"
                     element={
                       <ProtectedRoute>
-                        <AdminDashboardPage />
+                        <AdminLayout />
                       </ProtectedRoute>
                     }
-                  />
-                  <Route
-                    path="/admin/days/:id"
-                    element={
-                      <ProtectedRoute>
-                        <AdminDayResourcesPage />
-                      </ProtectedRoute>
-                    }
-                  />
-                  <Route
-                    path="/admin/projects"
-                    element={
-                      <ProtectedRoute>
-                        <AdminProjectsPage />
-                      </ProtectedRoute>
-                    }
-                  />
+                  >
+                    <Route path="/admin" element={<AdminDashboardPage />} />
+                    <Route
+                      path="/admin/days/:id"
+                      element={<AdminDayResourcesPage />}
+                    />
+                    <Route
+                      path="/admin/projects"
+                      element={<AdminProjectsPage />}
+                    />
+                  </Route>
                 </Routes>
               </Suspense>
             </main>

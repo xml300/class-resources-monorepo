@@ -21,6 +21,7 @@ import {
 } from "@repo/shared";
 import { api } from "../lib/api";
 import { MarkdownContent } from "../components/MarkdownContent";
+import { StudentSidebar } from "../layouts/StudentLayout";
 
 const DIFFICULTY_STYLES: Record<ProjectDifficulty, string> = {
   BEGINNER:
@@ -102,7 +103,7 @@ export function ProjectDetailPage() {
 
   if (loading) {
     return (
-      <div className="flex min-h-[60vh] items-center justify-center">
+      <div className="flex min-h-[50vh] items-center justify-center">
         <div className="h-8 w-8 animate-spin rounded-full border-4 border-emerald-500 border-t-transparent" />
       </div>
     );
@@ -110,7 +111,7 @@ export function ProjectDetailPage() {
 
   if (error || !project) {
     return (
-      <div className="mx-auto max-w-4xl px-4 py-12">
+      <div>
         <Link
           to="/projects"
           className="inline-flex items-center gap-1.5 text-sm font-medium text-emerald-400 hover:text-emerald-300"
@@ -177,17 +178,107 @@ export function ProjectDetailPage() {
     totalMilestones > 0 ? Math.round((doneCount / totalMilestones) * 100) : 0;
 
   return (
-    <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6">
-      <Link
-        to="/projects"
-        className="inline-flex items-center gap-1.5 text-sm font-medium text-zinc-400 transition hover:text-emerald-400"
+    <div className="space-y-6">
+      <StudentSidebar
+        icon={<CheckCircle2 className="h-4 w-4 text-emerald-400" />}
+        title="Milestones"
+        badge={
+          totalMilestones > 0 ? (
+            <span className="rounded-full bg-zinc-800 px-2 py-0.5 text-xs font-medium text-zinc-300">
+              {doneCount}/{totalMilestones}
+            </span>
+          ) : undefined
+        }
       >
-        <ArrowLeft className="h-4 w-4" />
-        All Mini Projects
-      </Link>
+        {totalMilestones === 0 ? (
+          <p className="text-xs text-zinc-500 italic">
+            No milestones defined for this project.
+          </p>
+        ) : (
+          <div className="space-y-4">
+            <div>
+              <div className="mb-1.5 flex items-center justify-between text-xs">
+                <span className="text-zinc-400">Your progress</span>
+                <div className="flex items-center gap-2">
+                  <span className="font-semibold text-emerald-300">
+                    {pct}%
+                  </span>
+                  {doneCount > 0 && (
+                    <button
+                      type="button"
+                      onClick={resetProgress}
+                      className="inline-flex items-center gap-1 text-zinc-400 hover:text-zinc-200"
+                    >
+                      <RotateCcw className="h-3 w-3" />
+                      Reset
+                    </button>
+                  )}
+                </div>
+              </div>
+              <div className="h-2 overflow-hidden rounded-full bg-zinc-800">
+                <div
+                  className="h-full rounded-full bg-emerald-500 transition-all"
+                  style={{ width: `${pct}%` }}
+                />
+              </div>
+            </div>
+
+            <ul className="space-y-2">
+              {project.milestones.map((m) => {
+                const checked = completedIds.includes(m.id);
+                return (
+                  <li key={m.id}>
+                    <button
+                      type="button"
+                      onClick={() => toggleMilestone(m.id)}
+                      className={`flex w-full items-start gap-2.5 rounded-xl border p-2.5 text-left transition ${
+                        checked
+                          ? "border-emerald-800/60 bg-emerald-950/30"
+                          : "border-zinc-800 bg-zinc-950/60 hover:border-zinc-700"
+                      }`}
+                    >
+                      {checked ? (
+                        <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-400" />
+                      ) : (
+                        <Circle className="mt-0.5 h-4 w-4 shrink-0 text-zinc-500" />
+                      )}
+                      <div className="min-w-0 flex-1">
+                        <p
+                          className={`text-xs font-medium ${
+                            checked
+                              ? "text-emerald-200 line-through decoration-emerald-700"
+                              : "text-zinc-200"
+                          }`}
+                        >
+                          {m.title}
+                        </p>
+                        {m.description && (
+                          <p className="mt-0.5 text-[11px] text-zinc-400">
+                            {m.description}
+                          </p>
+                        )}
+                      </div>
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
+        )}
+      </StudentSidebar>
+
+      <div>
+        <Link
+          to="/projects"
+          className="inline-flex items-center gap-1.5 text-sm font-medium text-zinc-400 transition hover:text-emerald-400"
+        >
+          <ArrowLeft className="h-4 w-4" />
+          All Mini Projects
+        </Link>
+      </div>
 
       {/* Metadata Header */}
-      <div className="mt-4 rounded-2xl border border-zinc-800 bg-zinc-900/80 p-6 sm:p-8">
+      <div className="rounded-2xl border border-zinc-800 bg-zinc-900/80 p-6 sm:p-8">
         <div className="flex flex-wrap items-center gap-2.5">
           <span
             className={`rounded-full border px-2.5 py-0.5 text-xs font-medium ${DIFFICULTY_STYLES[project.difficulty]}`}
@@ -270,106 +361,18 @@ export function ProjectDetailPage() {
         )}
       </div>
 
-      {/* Rich Content + Interactive Milestones */}
-      <div className="mt-8 grid grid-cols-1 gap-8 lg:grid-cols-12">
-        <div className="lg:col-span-7 xl:col-span-8">
-          <div className="rounded-2xl border border-zinc-800 bg-zinc-900/70 p-6 sm:p-8">
-            <h2 className="mb-4 text-xs font-semibold tracking-wider text-zinc-400 uppercase">
-              Project Brief & Instructions
-            </h2>
-            {project.instructions ? (
-              <MarkdownContent content={project.instructions} />
-            ) : (
-              <p className="text-sm text-zinc-500 italic">
-                No detailed instructions provided for this project yet.
-              </p>
-            )}
-          </div>
-        </div>
-
-        <aside className="lg:col-span-5 xl:col-span-4">
-          <div className="sticky top-24 rounded-2xl border border-zinc-800 bg-zinc-900/80 p-6">
-            <div className="flex items-center justify-between">
-              <h2 className="text-xs font-semibold tracking-wider text-zinc-300 uppercase">
-                Milestones Checklist
-              </h2>
-              {doneCount > 0 && (
-                <button
-                  type="button"
-                  onClick={resetProgress}
-                  className="inline-flex items-center gap-1 text-xs text-zinc-400 hover:text-zinc-200"
-                >
-                  <RotateCcw className="h-3 w-3" />
-                  Reset
-                </button>
-              )}
-            </div>
-
-            {totalMilestones === 0 ? (
-              <p className="mt-3 text-sm text-zinc-500 italic">
-                No milestones defined for this project.
-              </p>
-            ) : (
-              <>
-                <div className="mt-3">
-                  <div className="mb-1.5 flex items-center justify-between text-xs">
-                    <span className="text-zinc-400">Your progress</span>
-                    <span className="font-semibold text-emerald-300">
-                      {doneCount} / {totalMilestones} ({pct}%)
-                    </span>
-                  </div>
-                  <div className="h-2 overflow-hidden rounded-full bg-zinc-800">
-                    <div
-                      className="h-full rounded-full bg-emerald-500 transition-all"
-                      style={{ width: `${pct}%` }}
-                    />
-                  </div>
-                </div>
-
-                <ul className="mt-5 space-y-2.5">
-                  {project.milestones.map((m) => {
-                    const checked = completedIds.includes(m.id);
-                    return (
-                      <li key={m.id}>
-                        <button
-                          type="button"
-                          onClick={() => toggleMilestone(m.id)}
-                          className={`flex w-full items-start gap-3 rounded-xl border p-3 text-left transition ${
-                            checked
-                              ? "border-emerald-800/60 bg-emerald-950/30"
-                              : "border-zinc-800 bg-zinc-950/60 hover:border-zinc-700"
-                          }`}
-                        >
-                          {checked ? (
-                            <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-400" />
-                          ) : (
-                            <Circle className="mt-0.5 h-4 w-4 shrink-0 text-zinc-500" />
-                          )}
-                          <div className="min-w-0 flex-1">
-                            <p
-                              className={`text-sm font-medium ${
-                                checked
-                                  ? "text-emerald-200 line-through decoration-emerald-700"
-                                  : "text-zinc-200"
-                              }`}
-                            >
-                              {m.title}
-                            </p>
-                            {m.description && (
-                              <p className="mt-0.5 text-xs text-zinc-400">
-                                {m.description}
-                              </p>
-                            )}
-                          </div>
-                        </button>
-                      </li>
-                    );
-                  })}
-                </ul>
-              </>
-            )}
-          </div>
-        </aside>
+      {/* Rich Content */}
+      <div className="rounded-2xl border border-zinc-800 bg-zinc-900/70 p-6 sm:p-8">
+        <h2 className="mb-4 text-xs font-semibold tracking-wider text-zinc-400 uppercase">
+          Project Brief & Instructions
+        </h2>
+        {project.instructions ? (
+          <MarkdownContent content={project.instructions} />
+        ) : (
+          <p className="text-sm text-zinc-500 italic">
+            No detailed instructions provided for this project yet.
+          </p>
+        )}
       </div>
     </div>
   );

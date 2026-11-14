@@ -21,7 +21,7 @@ import {
   type ProjectDifficulty,
 } from "@repo/shared";
 import { api } from "../lib/api";
-import { ContentToggle } from "../components/ContentToggle";
+import { StudentSidebar, useStudentSidebar } from "../layouts/StudentLayout";
 
 const DIFFICULTY_STYLES: Record<ProjectDifficulty, string> = {
   BEGINNER:
@@ -44,6 +44,7 @@ function getCompletedMilestoneCount(projectId: string): number {
 }
 
 export function ProjectsPage() {
+  const { closeSidebar } = useStudentSidebar();
   const [projects, setProjects] = useState<MiniProjectDTO[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -97,7 +98,7 @@ export function ProjectsPage() {
 
   if (loading) {
     return (
-      <div className="flex min-h-[60vh] items-center justify-center">
+      <div className="flex min-h-[50vh] items-center justify-center">
         <div className="h-8 w-8 animate-spin rounded-full border-4 border-emerald-500 border-t-transparent" />
       </div>
     );
@@ -105,20 +106,55 @@ export function ProjectsPage() {
 
   if (error) {
     return (
-      <div className="mx-auto max-w-4xl px-4 py-12">
-        <div className="rounded-xl border border-red-900/60 bg-red-950/40 p-6 text-red-300">
-          <p className="font-medium">Unable to load mini projects</p>
-          <p className="mt-1 text-sm text-red-400">{error}</p>
-        </div>
+      <div className="rounded-xl border border-red-900/60 bg-red-950/40 p-6 text-red-300">
+        <p className="font-medium">Unable to load mini projects</p>
+        <p className="mt-1 text-sm text-red-400">{error}</p>
       </div>
     );
   }
 
   return (
-    <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6">
-      <div className="mb-5">
-        <ContentToggle />
-      </div>
+    <div className="space-y-6">
+      <StudentSidebar
+        icon={<Rocket className="h-4 w-4 text-emerald-400" />}
+        title="Mini Projects"
+        badge={
+          <span className="rounded-full bg-zinc-800 px-2 py-0.5 text-xs font-medium text-zinc-300">
+            {filtered.length}
+          </span>
+        }
+      >
+        {filtered.length === 0 ? (
+          <p className="text-xs text-zinc-500">
+            No matching projects to display.
+          </p>
+        ) : (
+          <ul className="space-y-1">
+            {filtered.map((p, idx) => (
+              <li key={p.id}>
+                <Link
+                  to={`/projects/${p.id}`}
+                  onClick={closeSidebar}
+                  className="group flex items-start gap-2.5 rounded-xl px-2.5 py-2 text-sm text-zinc-300 transition hover:bg-zinc-800/80 hover:text-emerald-300"
+                >
+                  <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-md bg-zinc-800 text-[11px] font-medium text-zinc-400 group-hover:bg-emerald-900/80 group-hover:text-emerald-200">
+                    {idx + 1}
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate font-medium text-zinc-200 group-hover:text-emerald-300">
+                      {p.title}
+                    </p>
+                    <p className="text-[11px] text-zinc-500">
+                      {PROJECT_DIFFICULTY_LABELS[p.difficulty]}
+                      {p.day ? ` • Day ${p.day.dayNumber}` : ""}
+                    </p>
+                  </div>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        )}
+      </StudentSidebar>
 
       {/* Hero Header */}
       <div className="relative overflow-hidden rounded-2xl border border-zinc-800 bg-gradient-to-br from-zinc-900 via-zinc-900 to-emerald-950/40 p-6 sm:p-8">

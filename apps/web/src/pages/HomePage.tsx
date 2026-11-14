@@ -6,10 +6,8 @@ import {
   KeyRound,
   Layers,
   Lock,
-  PanelLeftOpen,
   Search,
   ShieldAlert,
-  X,
 } from "lucide-react";
 import {
   RESOURCE_TYPES,
@@ -18,14 +16,17 @@ import {
 } from "@repo/shared";
 import { useDays } from "../context/DaysContext";
 import { ResourceBadge } from "../components/ResourceBadge";
-import { ContentToggle } from "../components/ContentToggle";
+import {
+  StudentSidebar,
+  useStudentSidebar,
+} from "../layouts/StudentLayout";
 import { api, ApiError } from "../lib/api";
 
 export function HomePage() {
   const { days, activeDay, refreshDays, loading, error } = useDays();
+  const { closeSidebar } = useStudentSidebar();
   const [search, setSearch] = useState("");
   const [selectedType, setSelectedType] = useState<ResourceType | "ALL">("ALL");
-  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [password, setPassword] = useState("");
   const [unlocking, setUnlocking] = useState(false);
   const [unlockError, setUnlockError] = useState<string | null>(null);
@@ -129,105 +130,63 @@ export function HomePage() {
   }
 
   return (
-    <div className="relative flex min-h-[calc(100vh-4rem)] flex-col md:flex-row">
-      {/* Mobile Backdrop */}
-      {sidebarOpen && (
-        <div
-          onClick={() => setSidebarOpen(false)}
-          className="fixed inset-0 z-30 bg-black/60 backdrop-blur-xs md:hidden"
-        />
-      )}
-
-      {/* Left Sidebar: All content of the active day */}
-      <aside
-        className={`fixed inset-y-0 left-0 z-40 w-72 shrink-0 overflow-y-auto border-r border-zinc-800/80 bg-zinc-950 p-4 transition-transform duration-200 ease-out md:static md:z-auto md:translate-x-0 md:bg-zinc-900/40 lg:w-80 ${
-          sidebarOpen ? "translate-x-0" : "-translate-x-full"
-        }`}
-      >
-        <div className="md:sticky md:top-20">
-          <div className="mb-3 flex items-center justify-between border-b border-zinc-800 pb-3">
-            <div className="flex items-center gap-2">
-              <Layers className="h-4 w-4 text-emerald-400" />
-              <h2 className="text-xs font-semibold tracking-wider text-zinc-300 uppercase">
-                Day {activeDay.dayNumber} Contents
-              </h2>
-            </div>
-            <div className="flex items-center gap-1.5">
-              {activeDay.isLocked ? (
-                <span className="inline-flex items-center gap-1 rounded-full bg-amber-950/80 px-2 py-0.5 text-xs font-medium text-amber-300">
-                  <Lock className="h-3 w-3" />
-                  Locked
-                </span>
-              ) : (
-                <span className="rounded-full bg-emerald-950 px-2 py-0.5 text-xs font-medium text-emerald-300">
-                  {activeDay.resources.length}
-                </span>
-              )}
-              <button
-                type="button"
-                onClick={() => setSidebarOpen(false)}
-                aria-label="Close contents sidebar"
-                className="rounded-lg p-1 text-zinc-400 hover:bg-zinc-800 hover:text-zinc-200 md:hidden"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            </div>
-          </div>
-
-          {activeDay.isLocked ? (
-            <p className="py-2 text-xs text-zinc-500 italic">
-              Enter the day password to view materials.
-            </p>
-          ) : activeDay.resources.length === 0 ? (
-            <p className="py-2 text-xs text-zinc-500 italic">
-              No materials posted for this day yet.
-            </p>
+    <>
+      <StudentSidebar
+        icon={<Layers className="h-4 w-4 text-emerald-400" />}
+        title={`Day ${activeDay.dayNumber} Contents`}
+        badge={
+          activeDay.isLocked ? (
+            <span className="inline-flex items-center gap-1 rounded-full bg-amber-950/80 px-2 py-0.5 text-xs font-medium text-amber-300">
+              <Lock className="h-3 w-3" />
+              Locked
+            </span>
           ) : (
-            <ul className="space-y-1">
-              {activeDay.resources.map((res, idx) => (
-                <li key={res.id}>
-                  <a
-                    href={`#resource-${res.id}`}
-                    onClick={() => {
-                      setSelectedType("ALL");
-                      setSearch("");
-                      setSidebarOpen(false);
-                    }}
-                    className="group flex items-start gap-2.5 rounded-xl px-2.5 py-2 text-sm transition hover:bg-zinc-800/80"
-                  >
-                    <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-md bg-zinc-800 text-[11px] font-medium text-zinc-400 group-hover:bg-emerald-900/80 group-hover:text-emerald-200">
-                      {idx + 1}
-                    </span>
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate font-medium text-zinc-200 group-hover:text-emerald-300">
-                        {res.title}
-                      </p>
-                      <p className="text-[11px] text-zinc-500">
-                        {RESOURCE_TYPE_LABELS[res.type]}
-                      </p>
-                    </div>
-                  </a>
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
-      </aside>
+            <span className="rounded-full bg-emerald-950 px-2 py-0.5 text-xs font-medium text-emerald-300">
+              {activeDay.resources.length}
+            </span>
+          )
+        }
+      >
+        {activeDay.isLocked ? (
+          <p className="py-2 text-xs text-zinc-500 italic">
+            Enter the day password to view materials.
+          </p>
+        ) : activeDay.resources.length === 0 ? (
+          <p className="py-2 text-xs text-zinc-500 italic">
+            No materials posted for this day yet.
+          </p>
+        ) : (
+          <ul className="space-y-1">
+            {activeDay.resources.map((res, idx) => (
+              <li key={res.id}>
+                <a
+                  href={`#resource-${res.id}`}
+                  onClick={() => {
+                    setSelectedType("ALL");
+                    setSearch("");
+                    closeSidebar();
+                  }}
+                  className="group flex items-start gap-2.5 rounded-xl px-2.5 py-2 text-sm transition hover:bg-zinc-800/80"
+                >
+                  <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-md bg-zinc-800 text-[11px] font-medium text-zinc-400 group-hover:bg-emerald-900/80 group-hover:text-emerald-200">
+                    {idx + 1}
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate font-medium text-zinc-200 group-hover:text-emerald-300">
+                      {res.title}
+                    </p>
+                    <p className="text-[11px] text-zinc-500">
+                      {RESOURCE_TYPE_LABELS[res.type]}
+                    </p>
+                  </div>
+                </a>
+              </li>
+            ))}
+          </ul>
+        )}
+      </StudentSidebar>
 
-      {/* Main Content: Active Day Details + Resources */}
-      <div className="min-w-0 flex-1 px-4 py-6 sm:px-8 sm:py-8">
-        <div className="mx-auto max-w-4xl space-y-6">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <button
-              type="button"
-              onClick={() => setSidebarOpen(true)}
-              className="inline-flex items-center gap-2 rounded-xl border border-zinc-800 bg-zinc-900/80 px-3 py-1.5 text-xs font-medium text-zinc-200 transition hover:bg-zinc-800 md:hidden"
-            >
-              <PanelLeftOpen className="h-4 w-4 text-emerald-400" />
-              Contents
-            </button>
-            <ContentToggle />
-          </div>
+      <div className="space-y-6">
           {activeDay.isLocked ? (
             <section className="rounded-2xl border border-zinc-800 bg-zinc-900/90 p-8 sm:p-10">
               <div className="mx-auto max-w-md text-center">
@@ -413,8 +372,7 @@ export function HomePage() {
           )}
             </>
           )}
-        </div>
       </div>
-    </div>
+    </>
   );
 }
