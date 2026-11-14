@@ -63,25 +63,23 @@ export function Navbar() {
               <ChevronLeft className="h-4 w-4" />
             </button>
 
-            <div className="flex max-w-[210px] items-center gap-0.5 overflow-x-auto sm:max-w-xs">
-              {days.map((day) => {
-                const isActive = day.id === activeDay.id;
-                return (
-                  <button
+            <div className="relative flex items-center">
+              <select
+                aria-label="Select class day"
+                value={activeDay.dayNumber}
+                onChange={(e) => setActiveDayNumber(Number(e.target.value))}
+                className="cursor-pointer appearance-none rounded-lg bg-emerald-800 px-3 py-1 text-center text-xs font-medium text-emerald-50 shadow-xs transition hover:bg-emerald-700 focus:outline-none"
+              >
+                {days.map((day) => (
+                  <option
                     key={day.id}
-                    type="button"
-                    onClick={() => setActiveDayNumber(day.dayNumber)}
-                    title={`Day ${day.dayNumber}: ${day.title}`}
-                    className={`shrink-0 rounded-lg px-2.5 py-1 text-xs font-medium transition ${
-                      isActive
-                        ? "bg-emerald-800 text-emerald-50 shadow-xs"
-                        : "text-zinc-400 hover:bg-zinc-800 hover:text-zinc-200"
-                    }`}
+                    value={day.dayNumber}
+                    className="bg-zinc-900 text-zinc-100"
                   >
                     Day {day.dayNumber}
-                  </button>
-                );
-              })}
+                  </option>
+                ))}
+              </select>
             </div>
 
             <button
