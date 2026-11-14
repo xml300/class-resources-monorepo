@@ -24,7 +24,6 @@ A Turborepo monorepo using **npm workspaces** for managing and displaying daily 
 3. **Configure environment variables**:
    Copy `apps/api/.env.example` to `apps/api/.env` and update values as needed:
    - `DATABASE_URL=postgresql://postgres:postgres@localhost:5432/class_resources`
-   - `DB_PORT=5432` (optional; overrides the port in `DATABASE_URL` or defaults to `5432`)
    - `ADMIN_EMAIL=admin@class.edu`
    - `ADMIN_PASSWORD=admin123`
 
