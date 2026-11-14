@@ -1,0 +1,19 @@
+node_modules
+dist
+.turbo
+.env
+*.log
+*.tsbuildinfo
+apps/api/uploads/*
+!apps/api/uploads/.gitkeep
+
+# Home directory / cache artifacts when initialized in /home/antigravity
+.npm/
+.cache/
+.config/
+.gemini
+.bashrc
+.bash_logout
+.profile
+.gitconfig
+xml300/

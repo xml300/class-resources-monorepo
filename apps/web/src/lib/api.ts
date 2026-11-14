@@ -1,0 +1,99 @@
+import type {
+  CreateDayInput,
+  CreateResourceInput,
+  DayWithResourcesDTO,
+  LoginInput,
+  ResourceDTO,
+  UpdateDayInput,
+  UpdateResourceInput,
+} from "@repo/shared";
+
+async function request<T>(url: string, options?: RequestInit): Promise<T> {
+  const res = await fetch(url, {
+    credentials: "include",
+    headers: {
+      "Content-Type": "application/json",
+      ...options?.headers,
+    },
+    ...options,
+  });
+
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body.error || `Request failed with status ${res.status}`);
+  }
+
+  return res.json() as Promise<T>;
+}
+
+export const api = {
+  // Public
+  getPublicDays: () => request<DayWithResourcesDTO[]>("/api/days"),
+  getPublicDay: (id: string) => request<DayWithResourcesDTO>(`/api/days/${id}`),
+
+  // Auth
+  getMe: () =>
+    request<{ authenticated: boolean; email: string | null }>("/api/auth/me"),
+  login: (data: LoginInput) =>
+    request<{ authenticated: boolean; email: string }>("/api/auth/login", {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+  logout: () =>
+    request<{ authenticated: boolean }>("/api/auth/logout", {
+      method: "POST",
+    }),
+
+  // Admin Days
+  getAdminDays: () => request<DayWithResourcesDTO[]>("/api/admin/days"),
+  getAdminDay: (id: string) =>
+    request<DayWithResourcesDTO>(`/api/admin/days/${id}`),
+  createDay: (data: CreateDayInput) =>
+    request<DayWithResourcesDTO>("/api/admin/days", {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+  updateDay: (id: string, data: UpdateDayInput) =>
+    request<DayWithResourcesDTO>(`/api/admin/days/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify(data),
+    }),
+  deleteDay: (id: string) =>
+    request<{ deleted: boolean; id: string }>(`/api/admin/days/${id}`, {
+      method: "DELETE",
+    }),
+
+  // Admin Resources
+  createResource: (dayId: string, data: CreateResourceInput) =>
+    request<ResourceDTO>(`/api/admin/days/${dayId}/resources`, {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+  updateResource: (id: string, data: UpdateResourceInput) =>
+    request<ResourceDTO>(`/api/admin/resources/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify(data),
+    }),
+  deleteResource: (id: string) =>
+    request<{ deleted: boolean; id: string }>(`/api/admin/resources/${id}`, {
+      method: "DELETE",
+    }),
+
+  // Upload
+  uploadFile: async (
+    file: File
+  ): Promise<{ url: string; filename: string; size: number }> => {
+    const formData = new FormData();
+    formData.append("file", file);
+    const res = await fetch("/api/admin/upload", {
+      method: "POST",
+      credentials: "include",
+      body: formData,
+    });
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      throw new Error(body.error || "File upload failed");
+    }
+    return res.json();
+  },
+};
