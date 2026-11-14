@@ -98,59 +98,24 @@ export function Navbar() {
               </nav>
             )}
 
-          {/* Admin route controls only */}
-          {isAdminRoute && (
-            <nav className="flex items-center gap-2">
-              {authenticated && (
-                <>
-                  <Link
-                    to="/admin"
-                    className={`rounded-lg px-3 py-1.5 text-sm font-medium transition ${
-                      location.pathname === "/admin" ||
-                      location.pathname.startsWith("/admin/days")
-                        ? "bg-zinc-800 text-zinc-100"
-                        : "text-zinc-400 hover:bg-zinc-800/60 hover:text-zinc-100"
-                    }`}
-                  >
-                    Days
-                  </Link>
-                  <Link
-                    to="/admin/projects"
-                    className={`rounded-lg px-3 py-1.5 text-sm font-medium transition ${
-                      location.pathname.startsWith("/admin/projects")
-                        ? "bg-emerald-900/80 text-emerald-100"
-                        : "text-zinc-400 hover:bg-zinc-800/60 hover:text-zinc-100"
-                    }`}
-                  >
-                    Mini Projects
-                  </Link>
-                </>
-              )}
-              <Link
-                to="/"
-                className="rounded-lg px-3 py-1.5 text-sm font-medium text-zinc-300 transition hover:bg-zinc-800 hover:text-zinc-100"
-              >
-                Student View
-              </Link>
-              {authenticated && (
-                <>
-                  <span className="hidden text-xs text-zinc-400 md:inline">
-                    {email}
-                  </span>
-                  <button
-                    type="button"
-                    onClick={handleLogout}
-                    className="inline-flex items-center gap-1 rounded-lg border border-zinc-700 bg-zinc-900 px-2.5 py-1.5 text-sm font-medium text-zinc-300 hover:bg-zinc-800 hover:text-zinc-100"
-                    title="Sign out"
-                  >
-                    <LogOut className="h-4 w-4" />
-                    <span className="hidden sm:inline">Logout</span>
-                  </button>
-                </>
-              )}
-            </nav>
-          )}
-        </div>
-      </header>
+        {/* Admin route controls only */}
+        {isAdminRoute && authenticated && (
+          <nav className="flex items-center gap-2.5">
+            <span className="hidden text-xs text-zinc-400 md:inline">
+              {email}
+            </span>
+            <button
+              type="button"
+              onClick={handleLogout}
+              className="inline-flex items-center gap-1 rounded-lg border border-zinc-700 bg-zinc-900 px-2.5 py-1.5 text-sm font-medium text-zinc-300 hover:bg-zinc-800 hover:text-zinc-100"
+              title="Sign out"
+            >
+              <LogOut className="h-4 w-4" />
+              <span className="hidden sm:inline">Logout</span>
+            </button>
+          </nav>
+        )}
+      </div>
+    </header>
   );
 }

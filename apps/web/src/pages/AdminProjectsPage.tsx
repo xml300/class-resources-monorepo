@@ -24,6 +24,7 @@ import {
   PublishControl,
   PublishStatusBadge,
 } from "../components/PublishControl";
+import { AdminNavToggle } from "../components/AdminNavToggle";
 
 interface ProjectFormState {
   title: string;
@@ -259,6 +260,10 @@ export function AdminProjectsPage() {
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6">
+      <div className="mb-5">
+        <AdminNavToggle />
+      </div>
+
       <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-zinc-100">
