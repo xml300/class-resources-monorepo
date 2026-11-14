@@ -3,10 +3,13 @@
   "tasks": {
     "build": {
       "dependsOn": ["^build"],
-      "outputs": ["dist/**"]
+      "inputs": ["src/**", "package.json", "tsconfig.json", "index.html", "vite.config.ts"],
+      "outputs": ["dist/**", "*.tsbuildinfo"]
     },
     "typecheck": {
-      "dependsOn": ["^build"]
+      "dependsOn": ["^build"],
+      "inputs": ["src/**", "package.json", "tsconfig.json"],
+      "outputs": ["*.tsbuildinfo"]
     },
     "lint": {
       "dependsOn": ["^build"]
