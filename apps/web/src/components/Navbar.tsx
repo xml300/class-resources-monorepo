@@ -48,11 +48,8 @@ export function Navbar() {
             </div>
           </Link>
 
-          {/* Top-right narrow day-based navigation on daily materials view */}
-          {!isAdminRoute &&
-            location.pathname === "/" &&
-            days.length > 0 &&
-            activeDay && (
+          {/* Top-right narrow day-based navigation on student view */}
+          {!isAdminRoute && days.length > 0 && activeDay && (
               <nav
                 aria-label="Day navigation"
                 className="flex items-center gap-1 rounded-xl border border-zinc-800 bg-zinc-900/90 p-1"

@@ -6,7 +6,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import type { DayWithResourcesDTO } from "@repo/shared";
 import { api } from "../lib/api";
 
@@ -26,6 +26,8 @@ export function DaysProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [searchParams, setSearchParams] = useSearchParams();
+  const location = useLocation();
+  const navigate = useNavigate();
 
   const refreshDays = useCallback(async () => {
     try {
@@ -45,7 +47,11 @@ export function DaysProvider({ children }: { children: ReactNode }) {
     days.find((d) => d.dayNumber === dayParam) ?? days[0] ?? null;
 
   const setActiveDayNumber = (dayNumber: number) => {
-    setSearchParams({ day: String(dayNumber) });
+    if (location.pathname !== "/") {
+      navigate(`/?day=${dayNumber}`);
+    } else {
+      setSearchParams({ day: String(dayNumber) });
+    }
   };
 
   return (
