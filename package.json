@@ -11,9 +11,9 @@
     "build": "turbo run build",
     "typecheck": "turbo run typecheck",
     "lint": "turbo run lint",
-    "db:generate": "npm run db:generate --workspace=@repo/api",
-    "db:push": "npm run db:push --workspace=@repo/api",
-    "db:seed": "npm run db:seed --workspace=@repo/api"
+    "db:generate": "npm run build --workspace=@repo/shared && npm run db:generate --workspace=@repo/api",
+    "db:push": "npm run build --workspace=@repo/shared && npm run db:push --workspace=@repo/api",
+    "db:seed": "npm run build --workspace=@repo/shared && npm run db:seed --workspace=@repo/api"
   },
   "devDependencies": {
     "turbo": "^2.5.0",
