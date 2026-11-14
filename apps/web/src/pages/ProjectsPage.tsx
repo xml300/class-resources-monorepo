@@ -21,6 +21,7 @@ import {
   type ProjectDifficulty,
 } from "@repo/shared";
 import { api } from "../lib/api";
+import { ContentToggle } from "../components/ContentToggle";
 
 const DIFFICULTY_STYLES: Record<ProjectDifficulty, string> = {
   BEGINNER:
@@ -115,6 +116,10 @@ export function ProjectsPage() {
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6">
+      <div className="mb-5">
+        <ContentToggle />
+      </div>
+
       {/* Hero Header */}
       <div className="relative overflow-hidden rounded-2xl border border-zinc-800 bg-gradient-to-br from-zinc-900 via-zinc-900 to-emerald-950/40 p-6 sm:p-8">
         <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end">

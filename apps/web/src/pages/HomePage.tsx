@@ -6,8 +6,10 @@ import {
   KeyRound,
   Layers,
   Lock,
+  PanelLeftOpen,
   Search,
   ShieldAlert,
+  X,
 } from "lucide-react";
 import {
   RESOURCE_TYPES,
@@ -16,12 +18,14 @@ import {
 } from "@repo/shared";
 import { useDays } from "../context/DaysContext";
 import { ResourceBadge } from "../components/ResourceBadge";
+import { ContentToggle } from "../components/ContentToggle";
 import { api, ApiError } from "../lib/api";
 
 export function HomePage() {
   const { days, activeDay, refreshDays, loading, error } = useDays();
   const [search, setSearch] = useState("");
   const [selectedType, setSelectedType] = useState<ResourceType | "ALL">("ALL");
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [password, setPassword] = useState("");
   const [unlocking, setUnlocking] = useState(false);
   const [unlockError, setUnlockError] = useState<string | null>(null);
@@ -125,9 +129,21 @@ export function HomePage() {
   }
 
   return (
-    <div className="flex min-h-[calc(100vh-7rem)] flex-col md:flex-row">
+    <div className="relative flex min-h-[calc(100vh-4rem)] flex-col md:flex-row">
+      {/* Mobile Backdrop */}
+      {sidebarOpen && (
+        <div
+          onClick={() => setSidebarOpen(false)}
+          className="fixed inset-0 z-30 bg-black/60 backdrop-blur-xs md:hidden"
+        />
+      )}
+
       {/* Left Sidebar: All content of the active day */}
-      <aside className="w-full shrink-0 border-b border-zinc-800/80 bg-zinc-900/40 p-4 md:w-72 md:border-r md:border-b-0 lg:w-80">
+      <aside
+        className={`fixed inset-y-0 left-0 z-40 w-72 shrink-0 overflow-y-auto border-r border-zinc-800/80 bg-zinc-950 p-4 transition-transform duration-200 ease-out md:static md:z-auto md:translate-x-0 md:bg-zinc-900/40 lg:w-80 ${
+          sidebarOpen ? "translate-x-0" : "-translate-x-full"
+        }`}
+      >
         <div className="md:sticky md:top-20">
           <div className="mb-3 flex items-center justify-between border-b border-zinc-800 pb-3">
             <div className="flex items-center gap-2">
@@ -136,16 +152,26 @@ export function HomePage() {
                 Day {activeDay.dayNumber} Contents
               </h2>
             </div>
-            {activeDay.isLocked ? (
-              <span className="inline-flex items-center gap-1 rounded-full bg-amber-950/80 px-2 py-0.5 text-xs font-medium text-amber-300">
-                <Lock className="h-3 w-3" />
-                Locked
-              </span>
-            ) : (
-              <span className="rounded-full bg-emerald-950 px-2 py-0.5 text-xs font-medium text-emerald-300">
-                {activeDay.resources.length}
-              </span>
-            )}
+            <div className="flex items-center gap-1.5">
+              {activeDay.isLocked ? (
+                <span className="inline-flex items-center gap-1 rounded-full bg-amber-950/80 px-2 py-0.5 text-xs font-medium text-amber-300">
+                  <Lock className="h-3 w-3" />
+                  Locked
+                </span>
+              ) : (
+                <span className="rounded-full bg-emerald-950 px-2 py-0.5 text-xs font-medium text-emerald-300">
+                  {activeDay.resources.length}
+                </span>
+              )}
+              <button
+                type="button"
+                onClick={() => setSidebarOpen(false)}
+                aria-label="Close contents sidebar"
+                className="rounded-lg p-1 text-zinc-400 hover:bg-zinc-800 hover:text-zinc-200 md:hidden"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
           </div>
 
           {activeDay.isLocked ? (
@@ -165,6 +191,7 @@ export function HomePage() {
                     onClick={() => {
                       setSelectedType("ALL");
                       setSearch("");
+                      setSidebarOpen(false);
                     }}
                     className="group flex items-start gap-2.5 rounded-xl px-2.5 py-2 text-sm transition hover:bg-zinc-800/80"
                   >
@@ -188,8 +215,19 @@ export function HomePage() {
       </aside>
 
       {/* Main Content: Active Day Details + Resources */}
-      <div className="min-w-0 flex-1 px-4 py-8 sm:px-8">
+      <div className="min-w-0 flex-1 px-4 py-6 sm:px-8 sm:py-8">
         <div className="mx-auto max-w-4xl space-y-6">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <button
+              type="button"
+              onClick={() => setSidebarOpen(true)}
+              className="inline-flex items-center gap-2 rounded-xl border border-zinc-800 bg-zinc-900/80 px-3 py-1.5 text-xs font-medium text-zinc-200 transition hover:bg-zinc-800 md:hidden"
+            >
+              <PanelLeftOpen className="h-4 w-4 text-emerald-400" />
+              Contents
+            </button>
+            <ContentToggle />
+          </div>
           {activeDay.isLocked ? (
             <section className="rounded-2xl border border-zinc-800 bg-zinc-900/90 p-8 sm:p-10">
               <div className="mx-auto max-w-md text-center">

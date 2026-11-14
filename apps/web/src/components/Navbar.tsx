@@ -30,8 +30,7 @@ export function Navbar() {
       : null;
 
   return (
-    <>
-      <header className="sticky top-0 z-30 border-b border-zinc-800/90 bg-zinc-950/90 backdrop-blur">
+    <header className="sticky top-0 z-30 border-b border-zinc-800/90 bg-zinc-950/90 backdrop-blur">
         <div className="mx-auto flex h-16 max-w-6xl items-center justify-between gap-4 px-4 sm:px-6">
           <Link
             to="/"
@@ -153,39 +152,5 @@ export function Navbar() {
           )}
         </div>
       </header>
-
-      {/* Content & Mini Projects toggle under the header */}
-      {!isAdminRoute && (
-        <div className="border-b border-zinc-800/70 bg-zinc-950/70">
-          <div className="mx-auto flex max-w-6xl items-center px-4 py-2.5 sm:px-6">
-            <nav
-              aria-label="Primary navigation"
-              className="inline-flex items-center gap-1 rounded-xl border border-zinc-800 bg-zinc-900/80 p-1 text-xs font-medium"
-            >
-              <Link
-                to="/"
-                className={`rounded-lg px-3.5 py-1.5 transition ${
-                  location.pathname === "/"
-                    ? "bg-zinc-800 text-zinc-100 shadow-xs"
-                    : "text-zinc-400 hover:text-zinc-200"
-                }`}
-              >
-                Daily Materials
-              </Link>
-              <Link
-                to="/projects"
-                className={`rounded-lg px-3.5 py-1.5 transition ${
-                  location.pathname.startsWith("/projects")
-                    ? "bg-emerald-800 text-emerald-50 shadow-xs"
-                    : "text-zinc-400 hover:text-zinc-200"
-                }`}
-              >
-                Mini Projects
-              </Link>
-            </nav>
-          </div>
-        </div>
-      )}
-    </>
   );
 }
