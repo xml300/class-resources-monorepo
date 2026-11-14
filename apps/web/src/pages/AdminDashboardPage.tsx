@@ -104,12 +104,14 @@ export function AdminDashboardPage() {
     setSaving(true);
     try {
       const payload: Record<string, unknown> = {
-        dayNumber: Number(form.dayNumber),
         title: form.title,
         date: form.date ? new Date(form.date).toISOString() : null,
         summary: form.summary || null,
         publishedAt: form.publishedAt,
       };
+      if (!editingDay) {
+        payload.dayNumber = Number(form.dayNumber);
+      }
       if (form.clearPassword) {
         payload.password = null;
       } else if (form.password.trim().length > 0) {
@@ -315,33 +317,16 @@ export function AdminDashboardPage() {
             )}
 
             <form onSubmit={handleSave} className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-zinc-300">
-                    Day Number
-                  </label>
-                  <input
-                    type="number"
-                    min={1}
-                    required
-                    value={form.dayNumber}
-                    onChange={(e) =>
-                      setForm({ ...form, dayNumber: Number(e.target.value) })
-                    }
-                    className="mt-1 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 focus:border-emerald-600 focus:outline-none"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-zinc-300">
-                    Date (optional)
-                  </label>
-                  <input
-                    type="date"
-                    value={form.date}
-                    onChange={(e) => setForm({ ...form, date: e.target.value })}
-                    className="mt-1 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 focus:border-emerald-600 focus:outline-none"
-                  />
-                </div>
+              <div>
+                <label className="block text-sm font-medium text-zinc-300">
+                  Date (optional)
+                </label>
+                <input
+                  type="date"
+                  value={form.date}
+                  onChange={(e) => setForm({ ...form, date: e.target.value })}
+                  className="mt-1 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 focus:border-emerald-600 focus:outline-none"
+                />
               </div>
 
               <div>
