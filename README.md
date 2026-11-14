@@ -24,6 +24,7 @@ A Turborepo monorepo using **npm workspaces** for managing and displaying daily 
 3. **Configure environment variables**:
    Copy `apps/api/.env.example` to `apps/api/.env` and update values as needed:
    - `DATABASE_URL=postgresql://postgres:postgres@localhost:5432/class_resources`
+   - `DB_PORT=5432` (optional; overrides the port in `DATABASE_URL` or defaults to `5432`)
    - `ADMIN_EMAIL=admin@class.edu`
    - `ADMIN_PASSWORD=admin123`
 
@@ -33,7 +34,7 @@ A Turborepo monorepo using **npm workspaces** for managing and displaying daily 
    npm run db:seed
    ```
 
-5. **Run both frontend and backend in development**:
+5. **Run in development** (Vite dev server + Express API):
    ```bash
    npm run dev
    ```
@@ -41,10 +42,18 @@ A Turborepo monorepo using **npm workspaces** for managing and displaying daily 
    - Backend API: http://localhost:4000
    - Admin Panel: http://localhost:5173/admin
 
+6. **Run in production** (Express serves both the API and the built Vite frontend):
+   ```bash
+   npm run build
+   npm start
+   ```
+   - App & API: http://localhost:4000
+
 ## Useful Scripts
 
 - `npm run dev` — Start all apps in dev mode
 - `npm run build` — Build all packages and apps
+- `npm start` — Start the Express server (serves API + built frontend from `apps/web/dist`)
 - `npm run typecheck` — Typecheck all workspaces
 - `npm run db:generate` — Generate Drizzle SQL migrations
 - `npm run db:push` — Push Drizzle schema to PostgreSQL

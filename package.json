@@ -9,6 +9,7 @@
   "scripts": {
     "dev": "turbo run dev",
     "build": "turbo run build",
+    "start": "npm run start --workspace=@repo/api",
     "typecheck": "turbo run typecheck",
     "lint": "turbo run lint",
     "db:generate": "npm run build --workspace=@repo/shared && npm run db:generate --workspace=@repo/api",

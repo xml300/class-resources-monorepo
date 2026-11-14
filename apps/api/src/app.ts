@@ -1,4 +1,6 @@
+import fs from "node:fs";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 import express from "express";
 import cors from "cors";
 import cookieParser from "cookie-parser";
@@ -6,6 +8,9 @@ import { env } from "./env.js";
 import { authRouter } from "./routes/auth.js";
 import { daysRouter } from "./routes/days.js";
 import { adminRouter } from "./routes/admin.js";
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const webDistDir = path.resolve(__dirname, "../../web/dist");
 
 export function createApp() {
   const app = express();
@@ -28,6 +33,18 @@ export function createApp() {
   app.use("/api/auth", authRouter);
   app.use("/api/days", daysRouter);
   app.use("/api/admin", adminRouter);
+
+  // Serve built Vite frontend from backend when available
+  const indexHtmlPath = path.join(webDistDir, "index.html");
+  if (fs.existsSync(indexHtmlPath)) {
+    app.use(express.static(webDistDir));
+    app.get("*", (req, res, next) => {
+      if (req.path.startsWith("/api") || req.path.startsWith("/uploads")) {
+        return next();
+      }
+      res.sendFile(indexHtmlPath);
+    });
+  }
 
   app.use(
     (
