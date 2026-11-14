@@ -10,27 +10,27 @@ import { RESOURCE_TYPE_LABELS, type ResourceType } from "@repo/shared";
 
 const STYLE_MAP: Record<ResourceType, { bg: string; icon: typeof FileText }> = {
   SLIDES: {
-    bg: "bg-amber-50 text-amber-700 border-amber-200",
+    bg: "bg-amber-950/60 text-amber-300 border-amber-800/60",
     icon: Presentation,
   },
   VIDEO: {
-    bg: "bg-rose-50 text-rose-700 border-rose-200",
+    bg: "bg-rose-950/60 text-rose-300 border-rose-800/60",
     icon: Video,
   },
   READING: {
-    bg: "bg-sky-50 text-sky-700 border-sky-200",
+    bg: "bg-sky-950/60 text-sky-300 border-sky-800/60",
     icon: BookOpen,
   },
   CODE: {
-    bg: "bg-emerald-50 text-emerald-700 border-emerald-200",
+    bg: "bg-emerald-950/70 text-emerald-300 border-emerald-800/60",
     icon: Code2,
   },
   ASSIGNMENT: {
-    bg: "bg-violet-50 text-violet-700 border-violet-200",
+    bg: "bg-teal-950/70 text-teal-300 border-teal-800/60",
     icon: ClipboardList,
   },
   OTHER: {
-    bg: "bg-slate-100 text-slate-700 border-slate-200",
+    bg: "bg-zinc-800 text-zinc-300 border-zinc-700",
     icon: FileText,
   },
 };

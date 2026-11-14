@@ -1,1 +1,10 @@
 @import "tailwindcss";
+
+@theme {
+  --font-sans: "Google Sans", "Google Sans Text", ui-sans-serif, system-ui, -apple-system, sans-serif;
+}
+
+html {
+  font-family: var(--font-sans);
+  color-scheme: dark;
+}

@@ -196,7 +196,7 @@ export function AdminDayResourcesPage() {
   if (loading) {
     return (
       <div className="flex min-h-[50vh] items-center justify-center">
-        <div className="h-8 w-8 animate-spin rounded-full border-4 border-indigo-600 border-t-transparent" />
+        <div className="h-8 w-8 animate-spin rounded-full border-4 border-emerald-500 border-t-transparent" />
       </div>
     );
   }
@@ -206,12 +206,12 @@ export function AdminDayResourcesPage() {
       <div className="mx-auto max-w-4xl px-4 py-8">
         <Link
           to="/admin"
-          className="inline-flex items-center gap-1.5 text-sm font-medium text-indigo-600 hover:text-indigo-700"
+          className="inline-flex items-center gap-1.5 text-sm font-medium text-emerald-400 hover:text-emerald-300"
         >
           <ArrowLeft className="h-4 w-4" />
           Back to Admin Dashboard
         </Link>
-        <div className="mt-4 rounded-xl border border-red-200 bg-red-50 p-6 text-red-700">
+        <div className="mt-4 rounded-xl border border-red-900/60 bg-red-950/50 p-6 text-red-300">
           {error || "Day not found"}
         </div>
       </div>
@@ -222,40 +222,40 @@ export function AdminDayResourcesPage() {
     <div className="mx-auto max-w-5xl px-4 py-8 sm:px-6">
       <Link
         to="/admin"
-        className="inline-flex items-center gap-1.5 text-sm font-medium text-slate-600 hover:text-indigo-600"
+        className="inline-flex items-center gap-1.5 text-sm font-medium text-zinc-400 hover:text-emerald-400"
       >
         <ArrowLeft className="h-4 w-4" />
         Back to All Days
       </Link>
 
-      <div className="mt-4 mb-6 flex flex-wrap items-start justify-between gap-4 rounded-2xl border border-slate-200 bg-white p-6 shadow-xs">
+      <div className="mt-4 mb-6 flex flex-wrap items-start justify-between gap-4 rounded-2xl border border-zinc-800 bg-zinc-900/80 p-6">
         <div>
           <div className="flex items-center gap-2">
-            <span className="rounded-md bg-slate-900 px-2.5 py-0.5 text-xs font-semibold text-white">
+            <span className="rounded-md border border-emerald-700/60 bg-emerald-900 px-2.5 py-0.5 text-xs font-semibold text-emerald-100">
               Day {day.dayNumber}
             </span>
             <span
               className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${
                 day.isPublished
-                  ? "bg-emerald-50 text-emerald-700"
-                  : "bg-amber-50 text-amber-700"
+                  ? "bg-emerald-950/80 text-emerald-300"
+                  : "bg-amber-950/80 text-amber-300"
               }`}
             >
               {day.isPublished ? "Published" : "Draft"}
             </span>
           </div>
-          <h1 className="mt-2 text-2xl font-bold text-slate-900">
+          <h1 className="mt-2 text-2xl font-bold text-zinc-100">
             {day.title}
           </h1>
           {day.summary && (
-            <p className="mt-1 text-sm text-slate-500">{day.summary}</p>
+            <p className="mt-1 text-sm text-zinc-400">{day.summary}</p>
           )}
         </div>
 
         <button
           type="button"
           onClick={openCreateModal}
-          className="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700"
+          className="inline-flex items-center gap-2 rounded-lg bg-emerald-800 px-4 py-2 text-sm font-semibold text-emerald-50 hover:bg-emerald-700"
         >
           <Plus className="h-4 w-4" />
           Add Resource
@@ -263,16 +263,16 @@ export function AdminDayResourcesPage() {
       </div>
 
       {day.resources.length === 0 ? (
-        <div className="rounded-2xl border border-dashed border-slate-300 bg-white p-12 text-center">
-          <p className="font-medium text-slate-900">No resources yet</p>
-          <p className="mt-1 text-sm text-slate-500">
+        <div className="rounded-2xl border border-dashed border-zinc-800 bg-zinc-900/50 p-12 text-center">
+          <p className="font-medium text-zinc-100">No resources yet</p>
+          <p className="mt-1 text-sm text-zinc-400">
             Add slides, videos, readings, code links, or assignments for Day{" "}
             {day.dayNumber}.
           </p>
         </div>
       ) : (
-        <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xs">
-          <div className="divide-y divide-slate-100">
+        <div className="overflow-hidden rounded-2xl border border-zinc-800 bg-zinc-900/80">
+          <div className="divide-y divide-zinc-800">
             {day.resources.map((res, index) => (
               <div
                 key={res.id}
@@ -281,17 +281,17 @@ export function AdminDayResourcesPage() {
                 <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-center gap-2">
                     <ResourceBadge type={res.type} />
-                    <span className="font-semibold text-slate-900">
+                    <span className="font-semibold text-zinc-100">
                       {res.title}
                     </span>
                     {!res.isPublished && (
-                      <span className="rounded-full bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-700">
+                      <span className="rounded-full bg-amber-950/80 px-2 py-0.5 text-xs font-medium text-amber-300">
                         Hidden
                       </span>
                     )}
                   </div>
                   {res.description && (
-                    <p className="mt-1 text-sm text-slate-500">
+                    <p className="mt-1 text-sm text-zinc-400">
                       {res.description}
                     </p>
                   )}
@@ -299,7 +299,7 @@ export function AdminDayResourcesPage() {
                     href={res.url}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="mt-1 inline-flex items-center gap-1 text-xs text-indigo-600 hover:underline"
+                    className="mt-1 inline-flex items-center gap-1 text-xs text-emerald-400 hover:underline"
                   >
                     <span className="max-w-md truncate">{res.url}</span>
                     <ExternalLink className="h-3 w-3 shrink-0" />
@@ -312,7 +312,7 @@ export function AdminDayResourcesPage() {
                     disabled={index === 0}
                     onClick={() => handleMove(index, "up")}
                     title="Move up"
-                    className="rounded-lg border border-slate-200 p-2 text-slate-600 hover:bg-slate-100 disabled:opacity-30"
+                    className="rounded-lg border border-zinc-700 bg-zinc-900 p-2 text-zinc-300 hover:bg-zinc-800 disabled:opacity-30"
                   >
                     <ArrowUp className="h-4 w-4" />
                   </button>
@@ -321,7 +321,7 @@ export function AdminDayResourcesPage() {
                     disabled={index === day.resources.length - 1}
                     onClick={() => handleMove(index, "down")}
                     title="Move down"
-                    className="rounded-lg border border-slate-200 p-2 text-slate-600 hover:bg-slate-100 disabled:opacity-30"
+                    className="rounded-lg border border-zinc-700 bg-zinc-900 p-2 text-zinc-300 hover:bg-zinc-800 disabled:opacity-30"
                   >
                     <ArrowDown className="h-4 w-4" />
                   </button>
@@ -329,7 +329,7 @@ export function AdminDayResourcesPage() {
                     type="button"
                     onClick={() => handleTogglePublish(res)}
                     title={res.isPublished ? "Hide" : "Publish"}
-                    className="rounded-lg border border-slate-200 p-2 text-slate-600 hover:bg-slate-100"
+                    className="rounded-lg border border-zinc-700 bg-zinc-900 p-2 text-zinc-300 hover:bg-zinc-800"
                   >
                     {res.isPublished ? (
                       <Eye className="h-4 w-4" />
@@ -341,7 +341,7 @@ export function AdminDayResourcesPage() {
                     type="button"
                     onClick={() => openEditModal(res)}
                     title="Edit resource"
-                    className="rounded-lg border border-slate-200 p-2 text-slate-600 hover:bg-slate-100"
+                    className="rounded-lg border border-zinc-700 bg-zinc-900 p-2 text-zinc-300 hover:bg-zinc-800"
                   >
                     <Pencil className="h-4 w-4" />
                   </button>
@@ -349,7 +349,7 @@ export function AdminDayResourcesPage() {
                     type="button"
                     onClick={() => handleDelete(res)}
                     title="Delete resource"
-                    className="rounded-lg border border-slate-200 p-2 text-red-600 hover:bg-red-50"
+                    className="rounded-lg border border-zinc-700 bg-zinc-900 p-2 text-red-400 hover:bg-red-950/50"
                   >
                     <Trash2 className="h-4 w-4" />
                   </button>
@@ -362,30 +362,30 @@ export function AdminDayResourcesPage() {
 
       {/* Add / Edit Resource Modal */}
       {modalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4">
-          <div className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-xl">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-xs">
+          <div className="w-full max-w-lg rounded-2xl border border-zinc-800 bg-zinc-900 p-6 shadow-xl">
             <div className="mb-4 flex items-center justify-between">
-              <h2 className="text-lg font-bold text-slate-900">
+              <h2 className="text-lg font-bold text-zinc-100">
                 {editingResource ? "Edit Resource" : "Add Resource"}
               </h2>
               <button
                 type="button"
                 onClick={() => setModalOpen(false)}
-                className="rounded-lg p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600"
+                className="rounded-lg p-1 text-zinc-400 hover:bg-zinc-800 hover:text-zinc-200"
               >
                 <X className="h-5 w-5" />
               </button>
             </div>
 
             {formError && (
-              <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+              <div className="mb-4 rounded-lg border border-red-900/60 bg-red-950/50 px-3 py-2 text-sm text-red-300">
                 {formError}
               </div>
             )}
 
             <form onSubmit={handleSave} className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-slate-700">
+                <label className="block text-sm font-medium text-zinc-300">
                   Resource Type
                 </label>
                 <select
@@ -393,7 +393,7 @@ export function AdminDayResourcesPage() {
                   onChange={(e) =>
                     setForm({ ...form, type: e.target.value as ResourceType })
                   }
-                  className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none"
+                  className="mt-1 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 focus:border-emerald-600 focus:outline-none"
                 >
                   {RESOURCE_TYPES.map((t) => (
                     <option key={t} value={t}>
@@ -404,7 +404,7 @@ export function AdminDayResourcesPage() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-slate-700">
+                <label className="block text-sm font-medium text-zinc-300">
                   Title
                 </label>
                 <input
@@ -413,12 +413,12 @@ export function AdminDayResourcesPage() {
                   value={form.title}
                   onChange={(e) => setForm({ ...form, title: e.target.value })}
                   placeholder="e.g., Lecture 3 Slides"
-                  className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none"
+                  className="mt-1 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 placeholder:text-zinc-500 focus:border-emerald-600 focus:outline-none"
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-slate-700">
+                <label className="block text-sm font-medium text-zinc-300">
                   URL or Uploaded File
                 </label>
                 <div className="mt-1 flex gap-2">
@@ -428,9 +428,9 @@ export function AdminDayResourcesPage() {
                     value={form.url}
                     onChange={(e) => setForm({ ...form, url: e.target.value })}
                     placeholder="https://... or upload a file"
-                    className="flex-1 rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none"
+                    className="flex-1 rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 placeholder:text-zinc-500 focus:border-emerald-600 focus:outline-none"
                   />
-                  <label className="inline-flex cursor-pointer items-center gap-1.5 rounded-lg border border-slate-300 bg-slate-50 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100">
+                  <label className="inline-flex cursor-pointer items-center gap-1.5 rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm font-medium text-zinc-200 hover:bg-zinc-700">
                     <Upload className="h-4 w-4" />
                     {uploading ? "Uploading..." : "Upload"}
                     <input
@@ -447,7 +447,7 @@ export function AdminDayResourcesPage() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-slate-700">
+                <label className="block text-sm font-medium text-zinc-300">
                   Description (optional)
                 </label>
                 <textarea
@@ -457,18 +457,18 @@ export function AdminDayResourcesPage() {
                     setForm({ ...form, description: e.target.value })
                   }
                   placeholder="Short note about this material..."
-                  className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none"
+                  className="mt-1 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 placeholder:text-zinc-500 focus:border-emerald-600 focus:outline-none"
                 />
               </div>
 
-              <label className="flex items-center gap-2 text-sm text-slate-700">
+              <label className="flex items-center gap-2 text-sm text-zinc-300">
                 <input
                   type="checkbox"
                   checked={form.isPublished}
                   onChange={(e) =>
                     setForm({ ...form, isPublished: e.target.checked })
                   }
-                  className="h-4 w-4 rounded border-slate-300 text-indigo-600"
+                  className="h-4 w-4 rounded border-zinc-700 bg-zinc-950 text-emerald-600"
                 />
                 Published (visible to students)
               </label>
@@ -477,14 +477,14 @@ export function AdminDayResourcesPage() {
                 <button
                   type="button"
                   onClick={() => setModalOpen(false)}
-                  className="rounded-lg border border-slate-200 px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50"
+                  className="rounded-lg border border-zinc-700 px-4 py-2 text-sm font-medium text-zinc-300 hover:bg-zinc-800"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={saving || uploading}
-                  className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700 disabled:opacity-50"
+                  className="rounded-lg bg-emerald-800 px-4 py-2 text-sm font-semibold text-emerald-50 hover:bg-emerald-700 disabled:opacity-50"
                 >
                   {saving
                     ? "Saving..."
