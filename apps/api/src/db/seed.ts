@@ -64,12 +64,12 @@ const DAY_SEEDS: DaySeed[] = [
       "https://docs.google.com/presentation/d/15l49rcEJFVVFyZcNFsdtUSxYn9Y9eIAEO4kvCTsx4HY",
     extraResources: [
       {
-        title: "Day 1 Coding Exercises & Mini-Project (todo-cli)",
+        title: "Day 1 Coding Exercises",
         description:
-          "6 coding exercises plus the Core, Stretch, and Challenge requirements for the todo-cli mini-project.",
+          "6 guided JavaScript & Node.js coding exercises covering conditionals, arrays, word frequency, CLI args, and fs/promises.",
         type: "ASSIGNMENT",
-        url: "https://drive.google.com/file/d/1lp3_sr9cfdhoPtI1Y9p4dqUJyfkOL_Gf/view",
-        content: readMaterial("exercises/day-01.md"),
+        url: "https://drive.google.com/file/d/17R-IzCqXVPKfEmD8JGrj5B6Aqx0ZnzbV/view",
+        content: readMaterial("coding-exercises/day-01.md"),
         order: 2,
       },
       {
@@ -93,7 +93,7 @@ const DAY_SEEDS: DaySeed[] = [
       {
         title: "10-Day Node.js Curriculum Plan",
         description:
-          "Full 10-day course roadmap, daily rhythm, mini-project tiers, and FlowBoard squad project guide.",
+          "Full 10-day course roadmap, daily rhythm, mini-project tiers, and squad project guide.",
         type: "READING",
         url: "https://drive.google.com/file/d/1zHuGF1YVt5qSX_-UJijFKHTFJE0i9DTj/view",
         content: readMaterial("nodejs-curriculum.md"),
@@ -113,7 +113,7 @@ const DAY_SEEDS: DaySeed[] = [
       title: "JavaScript CLI Utility (todo-cli / log-summary)",
       summary:
         "Build a JavaScript CLI utility that parses command-line arguments and persists structured JSON data via node:fs/promises.",
-      instructions: readMaterial("exercises/day-01.md"),
+      instructions: readMaterial("mini-projects/day-01.md"),
       milestones: [
         {
           id: "m1",
@@ -150,12 +150,12 @@ const DAY_SEEDS: DaySeed[] = [
       "https://docs.google.com/presentation/d/1BXpNTxzr5BGOe4hchc6G0NZPOWPx8D0KbABuQ2QkzZE",
     extraResources: [
       {
-        title: "Day 2 Coding Exercises & Mini-Project (Zero-Dependency HTTP API)",
+        title: "Day 2 Coding Exercises",
         description:
-          "Async/await, ESM, streams, and node:http exercises plus the Day 2 mini-project.",
+          "Async/await, Promise.all, ESM, streams, and node:http coding exercises.",
         type: "ASSIGNMENT",
-        url: "https://drive.google.com/file/d/1wm0LbNDzY1VYTVJ6aOiKch0oTrngy5Iw/view",
-        content: readMaterial("exercises/day-02.md"),
+        url: "https://drive.google.com/file/d/1-hlxfSvIqS202akXOfCuTAWqNC0ggzXr/view",
+        content: readMaterial("coding-exercises/day-02.md"),
         order: 2,
       },
       {
@@ -172,7 +172,7 @@ const DAY_SEEDS: DaySeed[] = [
       title: "Zero-Dependency Node.js HTTP API",
       summary:
         "Build an ESM-based HTTP JSON API (or streaming CSV processor) using only built-in Node.js modules and async/await.",
-      instructions: readMaterial("exercises/day-02.md"),
+      instructions: readMaterial("mini-projects/day-02.md"),
       milestones: [
         {
           id: "m1",
@@ -209,12 +209,12 @@ const DAY_SEEDS: DaySeed[] = [
       "https://docs.google.com/presentation/d/1C7H3KKxn1XlDziwsCpXUKDBcakXJ8EDusomtDQn0pDg",
     extraResources: [
       {
-        title: "Day 3 Coding Exercises & Mini-Project (Strict TypeScript HTTP API)",
+        title: "Day 3 Coding Exercises",
         description:
-          "Type narrowing, discriminated unions, typed parseJsonBody<T>, and CORS frontend integration.",
+          "Type narrowing, discriminated unions, typed parseJsonBody<T>, and CORS middleware exercises.",
         type: "ASSIGNMENT",
-        url: "https://drive.google.com/file/d/1F2Y6so0JXANKcr2_-7XYhX6owfKFNe-L/view",
-        content: readMaterial("exercises/day-03.md"),
+        url: "https://drive.google.com/file/d/1gisDtbg7mA8X--qwm_sXWgzROQv2Jrxr/view",
+        content: readMaterial("coding-exercises/day-03.md"),
         order: 2,
       },
       {
@@ -231,7 +231,7 @@ const DAY_SEEDS: DaySeed[] = [
       title: "Strict TypeScript HTTP API + Frontend Integration",
       summary:
         "Build a strict TypeScript node:http API with typed request parsing and CORS headers, and connect it to the pre-built Vite frontend.",
-      instructions: readMaterial("exercises/day-03.md"),
+      instructions: readMaterial("mini-projects/day-03.md"),
       milestones: [
         {
           id: "m1",
@@ -268,12 +268,12 @@ const DAY_SEEDS: DaySeed[] = [
       "https://docs.google.com/presentation/d/1hzl9flcji8uZ5VaIiv5VnaRA3bJcF23ES9_ehYN7qtU",
     extraResources: [
       {
-        title: "Day 4 Coding Exercises & Mini-Project (Typed Express + Zod API)",
+        title: "Day 4 Coding Exercises",
         description:
-          "Zod validation middleware, AppError handler, pino logging, and Bookmark/Expense API.",
+          "Zod validation middleware, AppError handler, pino logging, and layered Express exercises.",
         type: "ASSIGNMENT",
-        url: "https://drive.google.com/file/d/12NvSnDKvMmnoedjeph-7T4d5nkodB6hM/view",
-        content: readMaterial("exercises/day-04.md"),
+        url: "https://drive.google.com/file/d/1HAd6bIA_M4EMaP7pYiWw6AjgT7XjMm8r/view",
+        content: readMaterial("coding-exercises/day-04.md"),
         order: 2,
       },
       {
@@ -290,7 +290,7 @@ const DAY_SEEDS: DaySeed[] = [
       title: "Typed Express + Zod REST API",
       summary:
         "Build a layered Express + TypeScript REST API (Bookmark Manager or Expense Tracker) with generic Zod validation and centralized error handling.",
-      instructions: readMaterial("exercises/day-04.md"),
+      instructions: readMaterial("mini-projects/day-04.md"),
       milestones: [
         {
           id: "m1",
@@ -321,18 +321,18 @@ const DAY_SEEDS: DaySeed[] = [
     date: new Date("2026-11-20T09:00:00+01:00"),
     publishedAt: new Date("2026-11-20T09:00:00+01:00"),
     summary:
-      "Relational schema design, running PostgreSQL via docker-compose.yml, pg vs. Drizzle/Prisma ORMs, migrations, seeding, joins, pagination, transactions, and FlowBoard Sprint Day 1.",
+      "Relational schema design, running PostgreSQL via docker-compose.yml, pg vs. Drizzle/Prisma ORMs, migrations, seeding, joins, pagination, transactions, and Squad Project Kickoff.",
     slidesTitle: "Day 5: PostgreSQL & Type-Safe Data Access",
     slidesUrl:
       "https://docs.google.com/presentation/d/1UcSv1QjC4fxhUi8ILrdgdpMTNOj_moDHqgrX2GM-_Ro",
     extraResources: [
       {
-        title: "Day 5 Coding Exercises, Mini-Project & FlowBoard Sprint Day 1",
+        title: "Day 5 Coding Exercises",
         description:
-          "Drizzle schema, migrations, transactions, and FlowBoard squad kickoff with controlled merge conflict drill.",
+          "Drizzle schema, migrations, transactions, and PostgreSQL query exercises.",
         type: "ASSIGNMENT",
-        url: "https://drive.google.com/file/d/1Wua9VvteZETUXfTzuHHh7dCs12FO6j4P/view",
-        content: readMaterial("exercises/day-05.md"),
+        url: "https://drive.google.com/file/d/1El0rJ5IcAvjS4qzjeS5RUUVMftMl3ONB/view",
+        content: readMaterial("coding-exercises/day-05.md"),
         order: 2,
       },
       {
@@ -353,12 +353,21 @@ const DAY_SEEDS: DaySeed[] = [
         content: readMaterial("cheat-sheets/06-git-and-github-workflow.md"),
         order: 4,
       },
+      {
+        title: "Collaborative Squad Project Ideas (Days 5–8)",
+        description:
+          "Squad project options and feature splits for the Days 5–8 collaborative backend sprint.",
+        type: "READING",
+        url: "https://drive.google.com/file/d/1drsP-0dEchexnhFC_RM9s0CYxZpeIpD9/view",
+        content: readMaterial("collaborative-project-ideas.md"),
+        order: 5,
+      },
     ],
     miniProject: {
       title: "Postgres-Backed Data-Access Module",
       summary:
         "Design a relational PostgreSQL schema with Drizzle ORM, write migrations and a seed script, and implement transactional CRUD & pagination.",
-      instructions: readMaterial("exercises/day-05.md"),
+      instructions: readMaterial("mini-projects/day-05.md"),
       milestones: [
         {
           id: "m1",
@@ -389,18 +398,18 @@ const DAY_SEEDS: DaySeed[] = [
     date: new Date("2026-11-23T09:00:00+01:00"),
     publishedAt: new Date("2026-11-23T09:00:00+01:00"),
     summary:
-      "Password hashing (argon2/bcrypt), JWTs & typing req.user via Express declaration merging, RBAC middleware, helmet, CORS, rate limiting, SQL injection prevention, and FlowBoard Sprint Day 2.",
+      "Password hashing (argon2/bcrypt), JWTs & typing req.user via Express declaration merging, RBAC middleware, helmet, CORS, rate limiting, SQL injection prevention, and Squad Sprint Day 2.",
     slidesTitle: "Day 6: Authentication, Authorization & API Security",
     slidesUrl:
       "https://docs.google.com/presentation/d/1ik59Yw038ghb2qh0DOYGveGXta2KYjJEbz-mLcGAg3Q",
     extraResources: [
       {
-        title: "Day 6 Coding Exercises, Mini-Project & FlowBoard Sprint Day 2",
+        title: "Day 6 Coding Exercises",
         description:
-          "Password hashing, JWTs, Express req.user declaration merging, RBAC, and FlowBoard auth sprint.",
+          "Password hashing, JWTs, Express req.user declaration merging, and RBAC exercises.",
         type: "ASSIGNMENT",
-        url: "https://drive.google.com/file/d/1FkwYb4Q9AQmf5ZgtL_ZbMJ-3GwA2sr04/view",
-        content: readMaterial("exercises/day-06.md"),
+        url: "https://drive.google.com/file/d/1wN9XZAXNJsfHzYnmGju6r09cvCkhjkGS/view",
+        content: readMaterial("coding-exercises/day-06.md"),
         order: 2,
       },
     ],
@@ -408,7 +417,7 @@ const DAY_SEEDS: DaySeed[] = [
       title: "Auth & RBAC Middleware Sandbox",
       summary:
         "Implement secure password hashing, JWT authentication with typed req.user, role-based access control, and API security hardening.",
-      instructions: readMaterial("exercises/day-06.md"),
+      instructions: readMaterial("mini-projects/day-06.md"),
       milestones: [
         {
           id: "m1",
@@ -439,18 +448,18 @@ const DAY_SEEDS: DaySeed[] = [
     date: new Date("2026-11-24T09:00:00+01:00"),
     publishedAt: new Date("2026-11-24T09:00:00+01:00"),
     summary:
-      "Vitest + Supertest integration testing against a test PostgreSQL database, mocking external services, generating OpenAPI/Swagger docs from Zod schemas, and FlowBoard Sprint Day 3.",
+      "Vitest + Supertest integration testing against a test PostgreSQL database, mocking external services, generating OpenAPI/Swagger docs from Zod schemas, and Squad Sprint Day 3.",
     slidesTitle: "Day 7: Testing TypeScript APIs & OpenAPI Docs",
     slidesUrl:
       "https://docs.google.com/presentation/d/1kAgNRT_yKTO1p4CVrFLGceaZkZdd7wuKVewPTDva0aw",
     extraResources: [
       {
-        title: "Day 7 Coding Exercises, Mini-Project & FlowBoard Sprint Day 3",
+        title: "Day 7 Coding Exercises",
         description:
-          "Vitest + Supertest integration specs, mocking external services, OpenAPI docs, and cross-teammate testing.",
+          "Vitest + Supertest integration specs, mocking external services, and OpenAPI docs exercises.",
         type: "ASSIGNMENT",
-        url: "https://drive.google.com/file/d/1utFm_MPnBVgmDqKXO2ie07S0ejAaWj7j/view",
-        content: readMaterial("exercises/day-07.md"),
+        url: "https://drive.google.com/file/d/1undsOdCZDNkB4uuzZpIhSk_c0ua3l-Yf/view",
+        content: readMaterial("coding-exercises/day-07.md"),
         order: 2,
       },
       {
@@ -467,7 +476,7 @@ const DAY_SEEDS: DaySeed[] = [
       title: "Vitest + Supertest Suite & OpenAPI Spec",
       summary:
         "Write an automated Vitest + Supertest integration test suite against PostgreSQL with mocked external dependencies, plus OpenAPI docs from Zod.",
-      instructions: readMaterial("exercises/day-07.md"),
+      instructions: readMaterial("mini-projects/day-07.md"),
       milestones: [
         {
           id: "m1",
@@ -498,18 +507,18 @@ const DAY_SEEDS: DaySeed[] = [
     date: new Date("2026-11-25T09:00:00+01:00"),
     publishedAt: new Date("2026-11-25T09:00:00+01:00"),
     summary:
-      "WebSockets (ws/socket.io) with shared TypeScript event types, resilient typed fetch calls (timeouts/retries), node-cron background jobs, multer file uploads, and FlowBoard Final Sprint.",
+      "WebSockets (ws/socket.io) with shared TypeScript event types, resilient typed fetch calls (timeouts/retries), node-cron background jobs, multer file uploads, and Squad Final Sprint.",
     slidesTitle: "Day 8: Real-Time WebSockets, External APIs & Jobs",
     slidesUrl:
       "https://docs.google.com/presentation/d/1KUTsDUayAGFWO1V-GAzbxiO_PQ7Af4oMNxi-BFPt9I4",
     extraResources: [
       {
-        title: "Day 8 Coding Exercises, Mini-Project & FlowBoard Final Sprint",
+        title: "Day 8 Coding Exercises",
         description:
-          "Typed WebSocket broadcasts, fetchJsonWithRetry<T>, node-cron worker, and FlowBoard v1.0.0 release.",
+          "Typed WebSocket broadcasts, fetchJsonWithRetry<T>, and node-cron background job exercises.",
         type: "ASSIGNMENT",
-        url: "https://drive.google.com/file/d/1-FvkaKg4N8mr_5RM7a0sggCZeYYY-Pgp/view",
-        content: readMaterial("exercises/day-08.md"),
+        url: "https://drive.google.com/file/d/1QtRB8SqpQztSFYK4miE1FkDjcRJeHH9T/view",
+        content: readMaterial("coding-exercises/day-08.md"),
         order: 2,
       },
     ],
@@ -517,7 +526,7 @@ const DAY_SEEDS: DaySeed[] = [
       title: "WebSocket Notification Ticker & Cron Worker",
       summary:
         "Build a typed WebSocket broadcast server paired with resilient external API fetching and a node-cron background worker.",
-      instructions: readMaterial("exercises/day-08.md"),
+      instructions: readMaterial("mini-projects/day-08.md"),
       milestones: [
         {
           id: "m1",
@@ -558,8 +567,8 @@ const DAY_SEEDS: DaySeed[] = [
         description:
           "Readiness probes, graceful shutdown, correlation IDs, and Railway log/metrics troubleshooting.",
         type: "ASSIGNMENT",
-        url: "https://drive.google.com/file/d/1H1fve6_3Kqhj0NbU0H6Mg_QCf7EK9g0m/view",
-        content: readMaterial("exercises/day-09.md"),
+        url: "https://drive.google.com/file/d/1ZOOthWEIyKbZ2PNo2nfGL2iFhodEX6fn/view",
+        content: readMaterial("coding-exercises/day-09.md"),
         order: 2,
       },
     ],
@@ -580,8 +589,8 @@ const DAY_SEEDS: DaySeed[] = [
         description:
           "Multi-stage Dockerfile, GitHub Actions CI, Neon PostgreSQL, and Railway deployment checklist.",
         type: "ASSIGNMENT",
-        url: "https://drive.google.com/file/d/1AcbXeTwCUrvQV3qNdOdHC64sKaB3IyMB/view",
-        content: readMaterial("exercises/day-10.md"),
+        url: "https://drive.google.com/file/d/1Am4lMiLpDZEHlwCZ5H8b9-8zl9_QB_FB/view",
+        content: readMaterial("coding-exercises/day-10.md"),
         order: 2,
       },
     ],

@@ -1,4 +1,4 @@
-# Cheat Sheet: Git & GitHub Squad Workflow (FlowBoard Days 5–8)
+# Cheat Sheet: Git & GitHub Class-Wide Workflow (Days 5–8)
 
 ### Daily Feature Branch Flow
 ```bash

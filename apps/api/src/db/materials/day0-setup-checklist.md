@@ -1,6 +1,6 @@
 # Day 0 Setup Checklist: 10-Day Node.js & TypeScript Bootcamp
 
-Complete this checklist **before 9:00 AM on Day 1** so we can spend class time coding instead of troubleshooting installations.
+Complete this checklist **before Day 1 starts** so you can spend class time coding instead of troubleshooting installations.
 
 ---
 
@@ -22,11 +22,11 @@ Complete this checklist **before 9:00 AM on Day 1** so we can spend class time c
   - **Prettier - Code formatter** (`esbenp.prettier-vscode`)
   - **Error Lens** (`usernamehw.errorlens`) — *optional, great for seeing TypeScript errors inline*
   - **REST Client** (`humao.rest-client`) *or* **Thunder Client** (`rangav.vscode-thunder-client`)
-  - **Docker** (`ms-azuretools.vscode-docker`) — *needed starting Day 5*
+  - **Docker** (`ms-azuretools.vscode-docker`) — *needed on Day 10 for containerizing your app*
 
 ---
 
-## 3. Git & GitHub (Required for FlowBoard on Days 5–8)
+## 3. Git & GitHub (Required for the Collaborative Project on Days 5–8)
 - [ ] **Git** installed (`git --version`).
 - [ ] **GitHub account** created at [github.com](https://github.com/).
 - [ ] **Git identity configured:**
@@ -41,19 +41,10 @@ Complete this checklist **before 9:00 AM on Day 1** so we can spend class time c
 
 ---
 
-## 4. Docker & PostgreSQL (Required Starting Day 5)
-We run PostgreSQL in Docker so everyone has an identical database environment without local installation headaches.
-- [ ] **Docker Desktop** (macOS / Windows) or **Docker Engine + Compose** (Linux) installed and running.
-- [ ] Verify in terminal:
-  ```bash
-  docker --version
-  docker compose version
-  ```
-- [ ] **Pre-pull the Postgres image** before class (saves classroom Wi-Fi bandwidth on Day 5):
-  ```bash
-  docker pull postgres:16-alpine
-  ```
-- *(Windows users)*: Ensure **WSL 2** is enabled and Docker Desktop is configured to use the WSL 2 backend.
+## 4. Database: Neon PostgreSQL (Required Starting Day 5)
+We use **Neon** (managed serverless PostgreSQL) for development, testing, and production—no local Postgres installation or Docker database setup required.
+- [ ] **Neon account** created at [neon.tech](https://neon.tech/) (free tier, no credit card required).
+- [ ] Confirm you can log into the Neon Console and create a project.
 
 ---
 
@@ -65,10 +56,13 @@ Pick **one** of the following to test HTTP endpoints from Day 2 onward:
 
 ---
 
-## 6. Cloud Accounts (Required for Day 10 Deployment)
-Create free-tier accounts ahead of time so you aren't blocked by email/phone verification during Day 10:
-- [ ] **Neon** ([neon.tech](https://neon.tech/)) — Serverless PostgreSQL (free tier, no credit card required).
-- [ ] **Railway** ([railway.app](https://railway.app/)) — App hosting & log/metrics observability (sign in with GitHub).
+## 6. Docker & Cloud Hosting (Required for Day 10)
+- [ ] **Docker Desktop** (macOS / Windows) or **Docker Engine** (Linux) installed for building and testing your Node.js app container on Day 10:
+  ```bash
+  docker --version
+  ```
+  *(Windows users: ensure **WSL 2** is enabled in Docker Desktop.)*
+- [ ] **Railway account** ([railway.app](https://railway.app/)) — App hosting & log/metrics observability (sign in with GitHub).
 
 ---
 
@@ -80,7 +74,7 @@ echo "Node:" && node -v && \
 echo "npm:" && npm -v && \
 echo "Git:" && git --version && \
 echo "Git User:" && git config user.name && git config user.email && \
-echo "Docker:" && docker --version && docker compose version && \
+echo "Docker:" && docker --version && \
 echo "All core tools ready!"
 ```
 
@@ -89,4 +83,3 @@ echo "All core tools ready!"
 ## Troubleshooting Quick Fixes
 - **`node` not found after installing (Windows/macOS):** Close and reopen your terminal (or restart VS Code) so `PATH` refreshes.
 - **`docker` permission denied (Linux):** Run `sudo usermod -aG docker $USER` and log out/in.
-- **`docker compose` command not found:** Update Docker Desktop or install the `docker-compose-plugin` package.

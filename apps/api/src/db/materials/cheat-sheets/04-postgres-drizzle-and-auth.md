@@ -1,11 +1,11 @@
 # Cheat Sheet: PostgreSQL, Drizzle & Auth Security (Days 5–6)
 
-### Local Postgres via Docker Compose
+### Neon PostgreSQL Connection
 ```bash
-docker compose up -d          # Start Postgres in background
-docker compose logs -f db     # View DB logs
-docker compose down -v        # Stop & wipe volumes (fresh reset)
+# .env (copy from Neon Console -> Connection Details)
+DATABASE_URL="postgresql://user:password@ep-example.us-east-2.aws.neon.tech/neondb?sslmode=require"
 ```
+* Use **Neon Branches** in the Neon Console to keep `main` (prod), `dev`, and `test` databases isolated.
 
 ### Drizzle ORM Quick Patterns
 ```ts
