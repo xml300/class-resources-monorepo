@@ -32,13 +32,13 @@ interface DaySeed {
   };
 }
 
-// Schedule: Mon–Fri for 2 weeks starting Monday, Nov 16, 2026, published at 9:00 AM PST (-08:00).
+// Schedule: Mon–Fri for 2 weeks starting Monday, Nov 16, 2026, published at 9:00 AM UTC+1 (+01:00).
 const DAY_SEEDS: DaySeed[] = [
   {
     dayNumber: 1,
     title: "Programming Basics in JS & Intro to Node.js",
-    date: new Date("2026-11-16T09:00:00-08:00"),
-    publishedAt: new Date("2026-11-16T09:00:00-08:00"),
+    date: new Date("2026-11-16T09:00:00+01:00"),
+    publishedAt: new Date("2026-11-16T09:00:00+01:00"),
     summary:
       "How programs execute, variables, data types, conditionals, loops, functions, arrays & objects, and running JavaScript in Node.js (node, process.argv, node:fs/promises).",
     slidesTitle: "Day 1: Programming Basics in JS & Intro to Node.js (Expanded)",
@@ -89,15 +89,15 @@ Create a command-line utility (\`todo-cli\` or \`log-summary\`) in plain JavaScr
       difficulty: "BEGINNER",
       estimatedMinutes: 60,
       tags: ["JavaScript", "Node.js", "CLI", "fs/promises"],
-      dueDate: new Date("2026-11-16T23:59:00-08:00"),
+      dueDate: new Date("2026-11-16T23:59:00+01:00"),
       order: 1,
     },
   },
   {
     dayNumber: 2,
     title: "Node.js Ecosystem, Modules, Async JS & HTTP",
-    date: new Date("2026-11-17T09:00:00-08:00"),
-    publishedAt: new Date("2026-11-17T09:00:00-08:00"),
+    date: new Date("2026-11-17T09:00:00+01:00"),
+    publishedAt: new Date("2026-11-17T09:00:00+01:00"),
     summary:
       "The 4 uses of Node.js, V8 & the Event Loop, npm & package.json, CommonJS vs. ESM, Promises & async/await, Streams, and node:http basics.",
     slidesTitle: "Day 2: Node.js Ecosystem, Modules, Async JS & HTTP",
@@ -138,15 +138,15 @@ Build a zero-dependency HTTP JSON API using \`node:http\`, ESM (\`"type": "modul
       difficulty: "BEGINNER",
       estimatedMinutes: 75,
       tags: ["Node.js", "ESM", "Async/Await", "node:http", "Streams"],
-      dueDate: new Date("2026-11-17T23:59:00-08:00"),
+      dueDate: new Date("2026-11-17T23:59:00+01:00"),
       order: 2,
     },
   },
   {
     dayNumber: 3,
     title: "TypeScript Foundations & Connecting to a Frontend",
-    date: new Date("2026-11-18T09:00:00-08:00"),
-    publishedAt: new Date("2026-11-18T09:00:00-08:00"),
+    date: new Date("2026-11-18T09:00:00+01:00"),
+    publishedAt: new Date("2026-11-18T09:00:00+01:00"),
     summary:
       "TypeScript types, interfaces vs. type aliases, discriminated unions (Result<T, E>), tsconfig.json (NodeNext, strict: true), tsx vs. tsc, typed node:http, and CORS with a Vite frontend.",
     slidesTitle: "Day 3: TypeScript Foundations & Connecting to a Frontend",
@@ -187,15 +187,15 @@ Migrate to strict TypeScript (\`strict: true\`, \`NodeNext\`) and connect your A
       difficulty: "INTERMEDIATE",
       estimatedMinutes: 90,
       tags: ["TypeScript", "CORS", "Vite", "Strict Mode"],
-      dueDate: new Date("2026-11-18T23:59:00-08:00"),
+      dueDate: new Date("2026-11-18T23:59:00+01:00"),
       order: 3,
     },
   },
   {
     dayNumber: 4,
     title: "Express.js + TypeScript Architecture",
-    date: new Date("2026-11-19T09:00:00-08:00"),
-    publishedAt: new Date("2026-11-19T09:00:00-08:00"),
+    date: new Date("2026-11-19T09:00:00+01:00"),
+    publishedAt: new Date("2026-11-19T09:00:00+01:00"),
     summary:
       "Typing Express (Request, Response, NextFunction), middleware pipelines, Zod validation & type inference, centralized error handling (AppError), pino logging, and layered architecture.",
     slidesTitle: "Day 4: Express.js + TypeScript Architecture",
@@ -237,15 +237,15 @@ Structure a production-style Express + TypeScript API using \`routes -> controll
       difficulty: "INTERMEDIATE",
       estimatedMinutes: 90,
       tags: ["Express", "TypeScript", "Zod", "Pino", "REST"],
-      dueDate: new Date("2026-11-19T23:59:00-08:00"),
+      dueDate: new Date("2026-11-19T23:59:00+01:00"),
       order: 4,
     },
   },
   {
     dayNumber: 5,
     title: "PostgreSQL & Type-Safe Data Access",
-    date: new Date("2026-11-20T09:00:00-08:00"),
-    publishedAt: new Date("2026-11-20T09:00:00-08:00"),
+    date: new Date("2026-11-20T09:00:00+01:00"),
+    publishedAt: new Date("2026-11-20T09:00:00+01:00"),
     summary:
       "Relational schema design, running PostgreSQL via docker-compose.yml, pg vs. Drizzle/Prisma ORMs, migrations, seeding, joins, pagination, transactions, and FlowBoard Sprint Day 1.",
     slidesTitle: "Day 5: PostgreSQL & Type-Safe Data Access",
@@ -286,15 +286,15 @@ Build a standalone PostgreSQL data-access module backed by Docker Compose and Dr
       difficulty: "INTERMEDIATE",
       estimatedMinutes: 90,
       tags: ["PostgreSQL", "Drizzle ORM", "Docker", "SQL", "Transactions"],
-      dueDate: new Date("2026-11-20T23:59:00-08:00"),
+      dueDate: new Date("2026-11-20T23:59:00+01:00"),
       order: 5,
     },
   },
   {
     dayNumber: 6,
     title: "Authentication, Authorization & API Security",
-    date: new Date("2026-11-23T09:00:00-08:00"),
-    publishedAt: new Date("2026-11-23T09:00:00-08:00"),
+    date: new Date("2026-11-23T09:00:00+01:00"),
+    publishedAt: new Date("2026-11-23T09:00:00+01:00"),
     summary:
       "Password hashing (argon2/bcrypt), JWTs & typing req.user via Express declaration merging, RBAC middleware, helmet, CORS, rate limiting, SQL injection prevention, and FlowBoard Sprint Day 2.",
     slidesTitle: "Day 6: Authentication, Authorization & API Security",
@@ -336,15 +336,15 @@ Build a secure authentication and authorization sandbox in Express + TypeScript.
       difficulty: "INTERMEDIATE",
       estimatedMinutes: 90,
       tags: ["Auth", "JWT", "RBAC", "Security", "Express"],
-      dueDate: new Date("2026-11-23T23:59:00-08:00"),
+      dueDate: new Date("2026-11-23T23:59:00+01:00"),
       order: 6,
     },
   },
   {
     dayNumber: 7,
     title: "Testing TypeScript APIs & OpenAPI Docs",
-    date: new Date("2026-11-24T09:00:00-08:00"),
-    publishedAt: new Date("2026-11-24T09:00:00-08:00"),
+    date: new Date("2026-11-24T09:00:00+01:00"),
+    publishedAt: new Date("2026-11-24T09:00:00+01:00"),
     summary:
       "Vitest + Supertest integration testing against a test PostgreSQL database, mocking external services, generating OpenAPI/Swagger docs from Zod schemas, and FlowBoard Sprint Day 3.",
     slidesTitle: "Day 7: Testing TypeScript APIs & OpenAPI Docs",
@@ -385,15 +385,15 @@ Test an Express + PostgreSQL API end-to-end with Vitest + Supertest and document
       difficulty: "ADVANCED",
       estimatedMinutes: 90,
       tags: ["Vitest", "Supertest", "Testing", "OpenAPI", "Zod"],
-      dueDate: new Date("2026-11-24T23:59:00-08:00"),
+      dueDate: new Date("2026-11-24T23:59:00+01:00"),
       order: 7,
     },
   },
   {
     dayNumber: 8,
     title: "Real-Time WebSockets, External APIs & Jobs",
-    date: new Date("2026-11-25T09:00:00-08:00"),
-    publishedAt: new Date("2026-11-25T09:00:00-08:00"),
+    date: new Date("2026-11-25T09:00:00+01:00"),
+    publishedAt: new Date("2026-11-25T09:00:00+01:00"),
     summary:
       "WebSockets (ws/socket.io) with shared TypeScript event types, resilient typed fetch calls (timeouts/retries), node-cron background jobs, multer file uploads, and FlowBoard Final Sprint.",
     slidesTitle: "Day 8: Real-Time WebSockets, External APIs & Jobs",
@@ -434,15 +434,15 @@ Combine real-time WebSockets, resilient third-party \`fetch\`, and scheduled bac
       difficulty: "ADVANCED",
       estimatedMinutes: 90,
       tags: ["WebSockets", "Cron", "Fetch", "TypeScript", "Multer"],
-      dueDate: new Date("2026-11-25T23:59:00-08:00"),
+      dueDate: new Date("2026-11-25T23:59:00+01:00"),
       order: 8,
     },
   },
   {
     dayNumber: 9,
     title: "Production Readiness, Observability & Debugging",
-    date: new Date("2026-11-26T09:00:00-08:00"),
-    publishedAt: new Date("2026-11-26T09:00:00-08:00"),
+    date: new Date("2026-11-26T09:00:00+01:00"),
+    publishedAt: new Date("2026-11-26T09:00:00+01:00"),
     summary:
       "/health & readiness endpoints checking PostgreSQL connectivity, graceful SIGTERM/SIGINT shutdown, structured pino JSON logging & correlation IDs, memory & event-loop profiling, and full-stack debugging clinics.",
     slidesTitle: "Day 9: Production Readiness, Observability & Debugging",
@@ -452,8 +452,8 @@ Combine real-time WebSockets, resilient third-party \`fetch\`, and scheduled bac
   {
     dayNumber: 10,
     title: "Docker, CI/CD, Cloud Deployment & Wrap-Up",
-    date: new Date("2026-11-27T09:00:00-08:00"),
-    publishedAt: new Date("2026-11-27T09:00:00-08:00"),
+    date: new Date("2026-11-27T09:00:00+01:00"),
+    publishedAt: new Date("2026-11-27T09:00:00+01:00"),
     summary:
       "Multi-stage Dockerfile for Node + TypeScript, GitHub Actions CI/CD pipelines, provisioning Neon PostgreSQL, deploying to Railway, live observability verification, and course wrap-up.",
     slidesTitle: "Day 10: Docker, CI/CD, Cloud Deployment & Wrap-Up",
@@ -484,7 +484,7 @@ async function seed() {
     await db.delete(days);
   }
 
-  console.log("Seeding Days 1–10 (Mon–Fri, Nov 16–27, 2026 @ 9:00 AM PST)...");
+  console.log("Seeding Days 1–10 (Mon–Fri, Nov 16–27, 2026 @ 9:00 AM UTC+1)...");
 
   for (const item of DAY_SEEDS) {
     const [createdDay] = await db
