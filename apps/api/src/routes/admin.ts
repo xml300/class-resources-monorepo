@@ -2,7 +2,7 @@ import { Router } from "express";
 import path from "node:path";
 import fs from "node:fs";
 import multer from "multer";
-import { asc, eq } from "drizzle-orm";
+import { and, asc, eq, gt, isNull, or } from "drizzle-orm";
 import {
   createDaySchema,
   updateDaySchema,
@@ -147,8 +147,18 @@ adminRouter.patch("/days/:id", async (req, res, next) => {
       return;
     }
 
+    const existing = await db.query.days.findFirst({
+      where: eq(days.id, req.params.id),
+    });
+
+    if (!existing) {
+      res.status(404).json({ error: "Day not found" });
+      return;
+    }
+
+    const now = new Date();
     const updates: Record<string, unknown> = {
-      updatedAt: new Date(),
+      updatedAt: now,
     };
     if (parsed.data.dayNumber !== undefined)
       updates.dayNumber = parsed.data.dayNumber;
@@ -157,10 +167,17 @@ adminRouter.patch("/days/:id", async (req, res, next) => {
       updates.date = parsed.data.date ? new Date(parsed.data.date) : null;
     if (parsed.data.summary !== undefined)
       updates.summary = parsed.data.summary ?? null;
-    if (parsed.data.publishedAt !== undefined)
-      updates.publishedAt = parsed.data.publishedAt
-        ? new Date(parsed.data.publishedAt)
-        : null;
+
+    const nextPublishedAt =
+      parsed.data.publishedAt !== undefined
+        ? parsed.data.publishedAt
+          ? new Date(parsed.data.publishedAt)
+          : null
+        : undefined;
+    if (nextPublishedAt !== undefined) {
+      updates.publishedAt = nextPublishedAt;
+    }
+
     if (parsed.data.password !== undefined) {
       if (parsed.data.password && parsed.data.password.trim().length > 0) {
         updates.passwordHash = hashDayPassword(parsed.data.password.trim());
@@ -169,16 +186,38 @@ adminRouter.patch("/days/:id", async (req, res, next) => {
       }
     }
 
-    const [updated] = await db
-      .update(days)
-      .set(updates)
-      .where(eq(days.id, req.params.id))
-      .returning();
+    const updated = await db.transaction(async (tx) => {
+      const [updatedDay] = await tx
+        .update(days)
+        .set(updates)
+        .where(eq(days.id, req.params.id))
+        .returning();
 
-    if (!updated) {
-      res.status(404).json({ error: "Day not found" });
-      return;
-    }
+      if (
+        nextPublishedAt !== undefined &&
+        nextPublishedAt !== null &&
+        (existing.publishedAt?.getTime() ?? null) !== nextPublishedAt.getTime()
+      ) {
+        const wasScheduled =
+          existing.publishedAt !== null && existing.publishedAt > now;
+        const isPublishingNow = nextPublishedAt <= now;
+
+        const resourceCondition =
+          wasScheduled && isPublishingNow
+            ? or(isNull(resources.publishedAt), gt(resources.publishedAt, now))
+            : isNull(resources.publishedAt);
+
+        await tx
+          .update(resources)
+          .set({
+            publishedAt: nextPublishedAt,
+            updatedAt: now,
+          })
+          .where(and(eq(resources.dayId, updatedDay.id), resourceCondition));
+      }
+
+      return updatedDay;
+    });
 
     res.json(serializeAdminDay(updated));
   } catch (err: unknown) {
