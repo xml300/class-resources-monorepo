@@ -58,6 +58,7 @@ export const createResourceSchema = z.object({
   description: z.string().trim().max(1000).nullable().optional(),
   type: resourceTypeSchema.default("OTHER"),
   url: z.string().trim().min(1, "URL or file path is required").max(2000),
+  content: z.string().max(100000).nullable().optional(),
   order: z.coerce.number().int().min(0).optional().default(0),
   publishedAt: z.string().nullable().optional(),
 });
@@ -120,6 +121,7 @@ export interface ResourceDTO {
   description: string | null;
   type: ResourceType;
   url: string;
+  content: string | null;
   order: number;
   publishedAt: string | null;
   createdAt: string;

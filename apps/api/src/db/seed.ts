@@ -1,8 +1,32 @@
+import fs from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { count } from "drizzle-orm";
 import { db, pool } from "./index.js";
-import { days, resources, miniProjects, type projectDifficultyEnum } from "./schema.js";
+import {
+  days,
+  resources,
+  miniProjects,
+  type projectDifficultyEnum,
+} from "./schema.js";
 
 type ProjectDifficulty = (typeof projectDifficultyEnum.enumValues)[number];
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const materialsDir = path.join(__dirname, "materials");
+
+function readMaterial(relPath: string): string {
+  return fs.readFileSync(path.join(materialsDir, relPath), "utf8");
+}
+
+interface ResourceSeed {
+  title: string;
+  description: string;
+  type: "SLIDES" | "VIDEO" | "READING" | "CODE" | "ASSIGNMENT" | "OTHER";
+  url: string;
+  content?: string | null;
+  order: number;
+}
 
 interface DaySeed {
   dayNumber: number;
@@ -12,13 +36,7 @@ interface DaySeed {
   summary: string;
   slidesTitle: string;
   slidesUrl: string;
-  extraResources?: Array<{
-    title: string;
-    description: string;
-    type: "SLIDES" | "VIDEO" | "READING" | "CODE" | "ASSIGNMENT" | "OTHER";
-    url: string;
-    order: number;
-  }>;
+  extraResources?: ResourceSeed[];
   miniProject?: {
     title: string;
     summary: string;
@@ -46,29 +64,56 @@ const DAY_SEEDS: DaySeed[] = [
       "https://docs.google.com/presentation/d/15l49rcEJFVVFyZcNFsdtUSxYn9Y9eIAEO4kvCTsx4HY",
     extraResources: [
       {
-        title: "10-Day Node.js Curriculum Plan (nodejs-curriculum.md)",
+        title: "Day 1 Coding Exercises & Mini-Project (todo-cli)",
+        description:
+          "6 coding exercises plus the Core, Stretch, and Challenge requirements for the todo-cli mini-project.",
+        type: "ASSIGNMENT",
+        url: "https://drive.google.com/file/d/1lp3_sr9cfdhoPtI1Y9p4dqUJyfkOL_Gf/view",
+        content: readMaterial("exercises/day-01.md"),
+        order: 2,
+      },
+      {
+        title: "Cheat Sheet: Modern JavaScript & Node.js Essentials (Days 1–2)",
+        description:
+          "Quick reference for variables, array methods, ESM modules, async/await, and node:http.",
+        type: "READING",
+        url: "https://drive.google.com/file/d/1RT8YAhvLxhZ7EnvM4bfuZZRlX8p9Xcbl/view",
+        content: readMaterial("cheat-sheets/01-javascript-and-nodejs.md"),
+        order: 3,
+      },
+      {
+        title: "Day 0 Pre-Class Setup Checklist",
+        description:
+          "Verify Node.js, Git, GitHub SSH/auth, VS Code extensions, and Docker before Day 1.",
+        type: "READING",
+        url: "https://drive.google.com/file/d/1eCcZhSeogSuTjRpaRFk11a9r0QiCpt3i/view",
+        content: readMaterial("day0-setup-checklist.md"),
+        order: 4,
+      },
+      {
+        title: "10-Day Node.js Curriculum Plan",
         description:
           "Full 10-day course roadmap, daily rhythm, mini-project tiers, and FlowBoard squad project guide.",
         type: "READING",
         url: "https://drive.google.com/file/d/1zHuGF1YVt5qSX_-UJijFKHTFJE0i9DTj/view",
-        order: 2,
+        content: readMaterial("nodejs-curriculum.md"),
+        order: 5,
+      },
+      {
+        title: "Mini-Projects & Exercises Handbook (Days 1–10)",
+        description:
+          "Complete handbook of all coding exercises, mini-projects, and workshops across the 10-day course.",
+        type: "READING",
+        url: "https://drive.google.com/file/d/1ttmbrebSoz_iguPvtbbxd_6lj0P5fQXK/view",
+        content: readMaterial("mini-projects-and-exercises-handbook.md"),
+        order: 6,
       },
     ],
     miniProject: {
       title: "JavaScript CLI Utility (todo-cli / log-summary)",
       summary:
         "Build a JavaScript CLI utility that parses command-line arguments and persists structured JSON data via node:fs/promises.",
-      instructions: `## Objective
-Create a command-line utility (\`todo-cli\` or \`log-summary\`) in plain JavaScript running on Node.js.
-
-## Core Requirements
-- Parse subcommands and flags from \`process.argv\`
-- Read and write persistent data to \`data.json\` using \`node:fs/promises\`
-- Handle missing files and invalid arguments gracefully
-
-## Stretch & Challenge
-- **Stretch:** Add filtering, summary counts, and formatted console tables
-- **Challenge:** Support JSON/CSV export and unit tests with \`node:test\``,
+      instructions: readMaterial("exercises/day-01.md"),
       milestones: [
         {
           id: "m1",
@@ -82,8 +127,8 @@ Create a command-line utility (\`todo-cli\` or \`log-summary\`) in plain JavaScr
         },
         {
           id: "m3",
-          title: "Add summary & edge-case handling",
-          description: "Validate inputs and format CLI output cleanly.",
+          title: "Add filtering, summary & export",
+          description: "Implement --pending/--done filters and CSV export.",
         },
       ],
       difficulty: "BEGINNER",
@@ -103,21 +148,31 @@ Create a command-line utility (\`todo-cli\` or \`log-summary\`) in plain JavaScr
     slidesTitle: "Day 2: Node.js Ecosystem, Modules, Async JS & HTTP",
     slidesUrl:
       "https://docs.google.com/presentation/d/1BXpNTxzr5BGOe4hchc6G0NZPOWPx8D0KbABuQ2QkzZE",
+    extraResources: [
+      {
+        title: "Day 2 Coding Exercises & Mini-Project (Zero-Dependency HTTP API)",
+        description:
+          "Async/await, ESM, streams, and node:http exercises plus the Day 2 mini-project.",
+        type: "ASSIGNMENT",
+        url: "https://drive.google.com/file/d/1wm0LbNDzY1VYTVJ6aOiKch0oTrngy5Iw/view",
+        content: readMaterial("exercises/day-02.md"),
+        order: 2,
+      },
+      {
+        title: "All-in-One One-Page Cheat Sheets",
+        description:
+          "Consolidated reference sheets covering JavaScript, Node.js, TypeScript, Express, Drizzle, Testing, and Git.",
+        type: "READING",
+        url: "https://drive.google.com/file/d/1y6HvnONWw4MJBUE5xCKC1W3EU4lqbwHi/view",
+        content: readMaterial("one-page-cheat-sheets.md"),
+        order: 3,
+      },
+    ],
     miniProject: {
       title: "Zero-Dependency Node.js HTTP API",
       summary:
         "Build an ESM-based HTTP JSON API (or streaming CSV processor) using only built-in Node.js modules and async/await.",
-      instructions: `## Objective
-Build a zero-dependency HTTP JSON API using \`node:http\`, ESM (\`"type": "module"\`), and \`async/await\`.
-
-## Core Requirements
-- Implement CRUD routes with proper HTTP methods and status codes
-- Parse incoming JSON request bodies asynchronously
-- Persist data to disk without blocking the event loop
-
-## Stretch & Challenge
-- **Stretch:** Add query-parameter filtering and \`stream/promises\` \`pipeline\` export
-- **Challenge:** Add request logging and concurrent file-lock protection`,
+      instructions: readMaterial("exercises/day-02.md"),
       milestones: [
         {
           id: "m1",
@@ -152,21 +207,31 @@ Build a zero-dependency HTTP JSON API using \`node:http\`, ESM (\`"type": "modul
     slidesTitle: "Day 3: TypeScript Foundations & Connecting to a Frontend",
     slidesUrl:
       "https://docs.google.com/presentation/d/1C7H3KKxn1XlDziwsCpXUKDBcakXJ8EDusomtDQn0pDg",
+    extraResources: [
+      {
+        title: "Day 3 Coding Exercises & Mini-Project (Strict TypeScript HTTP API)",
+        description:
+          "Type narrowing, discriminated unions, typed parseJsonBody<T>, and CORS frontend integration.",
+        type: "ASSIGNMENT",
+        url: "https://drive.google.com/file/d/1F2Y6so0JXANKcr2_-7XYhX6owfKFNe-L/view",
+        content: readMaterial("exercises/day-03.md"),
+        order: 2,
+      },
+      {
+        title: "Cheat Sheet: TypeScript Essentials (Day 3)",
+        description:
+          "Interfaces vs. type aliases, discriminated unions, generics, tsconfig.json, and tsx vs. tsc.",
+        type: "READING",
+        url: "https://drive.google.com/file/d/1OauZZZHqQQ1tdbDXr-R8vSH_xbmOKN8L/view",
+        content: readMaterial("cheat-sheets/02-typescript.md"),
+        order: 3,
+      },
+    ],
     miniProject: {
       title: "Strict TypeScript HTTP API + Frontend Integration",
       summary:
         "Build a strict TypeScript node:http API with typed request parsing and CORS headers, and connect it to the pre-built Vite frontend.",
-      instructions: `## Objective
-Migrate to strict TypeScript (\`strict: true\`, \`NodeNext\`) and connect your API to a Vite frontend.
-
-## Core Requirements
-- Configure \`tsconfig.json\`, \`tsx\` for dev, and \`tsc --noEmit\` for typechecking
-- Implement a generic \`parseJsonBody<T>(req)\` helper and \`Result<T, E>\` discriminated union
-- Enable CORS headers so the pre-built Vite app can fetch and mutate data
-
-## Stretch & Challenge
-- **Stretch:** Share request/response DTO types cleanly across endpoints
-- **Challenge:** Add typed environment config and strict \`noUncheckedIndexedAccess\``,
+      instructions: readMaterial("exercises/day-03.md"),
       milestones: [
         {
           id: "m1",
@@ -201,22 +266,31 @@ Migrate to strict TypeScript (\`strict: true\`, \`NodeNext\`) and connect your A
     slidesTitle: "Day 4: Express.js + TypeScript Architecture",
     slidesUrl:
       "https://docs.google.com/presentation/d/1hzl9flcji8uZ5VaIiv5VnaRA3bJcF23ES9_ehYN7qtU",
+    extraResources: [
+      {
+        title: "Day 4 Coding Exercises & Mini-Project (Typed Express + Zod API)",
+        description:
+          "Zod validation middleware, AppError handler, pino logging, and Bookmark/Expense API.",
+        type: "ASSIGNMENT",
+        url: "https://drive.google.com/file/d/12NvSnDKvMmnoedjeph-7T4d5nkodB6hM/view",
+        content: readMaterial("exercises/day-04.md"),
+        order: 2,
+      },
+      {
+        title: "Cheat Sheet: Express.js & Zod (Day 4)",
+        description:
+          "Typed Express routes, middleware pipeline, Zod schemas & z.infer, and centralized error handling.",
+        type: "READING",
+        url: "https://drive.google.com/file/d/12AlgtHJA7Lja52gKIGtKTirU1fkL3krp/view",
+        content: readMaterial("cheat-sheets/03-express-and-zod.md"),
+        order: 3,
+      },
+    ],
     miniProject: {
       title: "Typed Express + Zod REST API",
       summary:
         "Build a layered Express + TypeScript REST API (Bookmark Manager or Expense Tracker) with generic Zod validation and centralized error handling.",
-      instructions: `## Objective
-Structure a production-style Express + TypeScript API using \`routes -> controllers -> services\`.
-
-## Core Requirements
-- Build a generic \`validate({ body, query, params })\` middleware using **Zod**
-- Infer TypeScript types directly with \`z.infer\`
-- Implement \`AppError\` and centralized error-handling middleware
-- Add structured request logging with \`pino\`
-
-## Stretch & Challenge
-- **Stretch:** Add pagination, sorting, and search query validation
-- **Challenge:** Add response DTO serialization and custom Zod refinements`,
+      instructions: readMaterial("exercises/day-04.md"),
       milestones: [
         {
           id: "m1",
@@ -251,21 +325,40 @@ Structure a production-style Express + TypeScript API using \`routes -> controll
     slidesTitle: "Day 5: PostgreSQL & Type-Safe Data Access",
     slidesUrl:
       "https://docs.google.com/presentation/d/1UcSv1QjC4fxhUi8ILrdgdpMTNOj_moDHqgrX2GM-_Ro",
+    extraResources: [
+      {
+        title: "Day 5 Coding Exercises, Mini-Project & FlowBoard Sprint Day 1",
+        description:
+          "Drizzle schema, migrations, transactions, and FlowBoard squad kickoff with controlled merge conflict drill.",
+        type: "ASSIGNMENT",
+        url: "https://drive.google.com/file/d/1Wua9VvteZETUXfTzuHHh7dCs12FO6j4P/view",
+        content: readMaterial("exercises/day-05.md"),
+        order: 2,
+      },
+      {
+        title: "Cheat Sheet: PostgreSQL, Drizzle ORM & Auth (Days 5–6)",
+        description:
+          "Drizzle schema definitions, queries, db.transaction(), JWTs, and RBAC middleware patterns.",
+        type: "READING",
+        url: "https://drive.google.com/file/d/1V-oaXjkiltjBgPYftiXZ4dd10S9ynubl/view",
+        content: readMaterial("cheat-sheets/04-postgres-drizzle-and-auth.md"),
+        order: 3,
+      },
+      {
+        title: "Cheat Sheet: Git & GitHub Team Workflow (Days 5–8)",
+        description:
+          "Feature branches, PR workflow, rebasing/merging main, and resolving merge conflicts cleanly.",
+        type: "READING",
+        url: "https://drive.google.com/file/d/1rtIoNlIC12XDg6jmFWfXHNZmjDm_-6Y5/view",
+        content: readMaterial("cheat-sheets/06-git-and-github-workflow.md"),
+        order: 4,
+      },
+    ],
     miniProject: {
       title: "Postgres-Backed Data-Access Module",
       summary:
         "Design a relational PostgreSQL schema with Drizzle ORM, write migrations and a seed script, and implement transactional CRUD & pagination.",
-      instructions: `## Objective
-Build a standalone PostgreSQL data-access module backed by Docker Compose and Drizzle ORM.
-
-## Core Requirements
-- Model relational tables with foreign keys and timestamps
-- Generate and run migrations plus an idempotent seed script
-- Implement joins, pagination, and atomic \`db.transaction()\` operations
-
-## Stretch & Challenge
-- **Stretch:** Add full-text or \`ILIKE\` search with tag filtering
-- **Challenge:** Add optimistic concurrency checks and cursor pagination`,
+      instructions: readMaterial("exercises/day-05.md"),
       milestones: [
         {
           id: "m1",
@@ -300,22 +393,22 @@ Build a standalone PostgreSQL data-access module backed by Docker Compose and Dr
     slidesTitle: "Day 6: Authentication, Authorization & API Security",
     slidesUrl:
       "https://docs.google.com/presentation/d/1ik59Yw038ghb2qh0DOYGveGXta2KYjJEbz-mLcGAg3Q",
+    extraResources: [
+      {
+        title: "Day 6 Coding Exercises, Mini-Project & FlowBoard Sprint Day 2",
+        description:
+          "Password hashing, JWTs, Express req.user declaration merging, RBAC, and FlowBoard auth sprint.",
+        type: "ASSIGNMENT",
+        url: "https://drive.google.com/file/d/1FkwYb4Q9AQmf5ZgtL_ZbMJ-3GwA2sr04/view",
+        content: readMaterial("exercises/day-06.md"),
+        order: 2,
+      },
+    ],
     miniProject: {
       title: "Auth & RBAC Middleware Sandbox",
       summary:
         "Implement secure password hashing, JWT authentication with typed req.user, role-based access control, and API security hardening.",
-      instructions: `## Objective
-Build a secure authentication and authorization sandbox in Express + TypeScript.
-
-## Core Requirements
-- Hash passwords with \`argon2\` or \`bcrypt\` and issue signed JWTs
-- Extend Express \`Request\` via TypeScript declaration merging for \`req.user\`
-- Implement \`requireAuth\` and \`requireRole\` RBAC middleware
-- Configure \`helmet\`, strict CORS, and rate limiting
-
-## Stretch & Challenge
-- **Stretch:** Add HTTP-only refresh cookies and token revocation
-- **Challenge:** Add per-IP/account brute-force lockout protection`,
+      instructions: readMaterial("exercises/day-06.md"),
       milestones: [
         {
           id: "m1",
@@ -350,21 +443,31 @@ Build a secure authentication and authorization sandbox in Express + TypeScript.
     slidesTitle: "Day 7: Testing TypeScript APIs & OpenAPI Docs",
     slidesUrl:
       "https://docs.google.com/presentation/d/1kAgNRT_yKTO1p4CVrFLGceaZkZdd7wuKVewPTDva0aw",
+    extraResources: [
+      {
+        title: "Day 7 Coding Exercises, Mini-Project & FlowBoard Sprint Day 3",
+        description:
+          "Vitest + Supertest integration specs, mocking external services, OpenAPI docs, and cross-teammate testing.",
+        type: "ASSIGNMENT",
+        url: "https://drive.google.com/file/d/1utFm_MPnBVgmDqKXO2ie07S0ejAaWj7j/view",
+        content: readMaterial("exercises/day-07.md"),
+        order: 2,
+      },
+      {
+        title: "Cheat Sheet: Testing, WebSockets & Production (Days 7–9)",
+        description:
+          "Vitest + Supertest patterns, vi.mock, WebSocket broadcasts, /health checks, and graceful SIGTERM shutdown.",
+        type: "READING",
+        url: "https://drive.google.com/file/d/1I85THPFmPg2Z5pJFMZblwVV2U_Ne7cM9/view",
+        content: readMaterial("cheat-sheets/05-testing-websockets-and-production.md"),
+        order: 3,
+      },
+    ],
     miniProject: {
       title: "Vitest + Supertest Suite & OpenAPI Spec",
       summary:
         "Write an automated Vitest + Supertest integration test suite against PostgreSQL with mocked external dependencies, plus OpenAPI docs from Zod.",
-      instructions: `## Objective
-Test an Express + PostgreSQL API end-to-end with Vitest + Supertest and document it with OpenAPI.
-
-## Core Requirements
-- Write integration tests covering happy paths, Zod 400 errors, auth 401/403, and 404s
-- Mock an external service (e.g. \`MailerService\`) in tests
-- Generate an OpenAPI 3.x / Swagger spec directly from Zod schemas
-
-## Stretch & Challenge
-- **Stretch:** Isolate test cases with database cleanup/transactions per test
-- **Challenge:** Enforce minimum coverage thresholds in CI`,
+      instructions: readMaterial("exercises/day-07.md"),
       milestones: [
         {
           id: "m1",
@@ -399,21 +502,22 @@ Test an Express + PostgreSQL API end-to-end with Vitest + Supertest and document
     slidesTitle: "Day 8: Real-Time WebSockets, External APIs & Jobs",
     slidesUrl:
       "https://docs.google.com/presentation/d/1KUTsDUayAGFWO1V-GAzbxiO_PQ7Af4oMNxi-BFPt9I4",
+    extraResources: [
+      {
+        title: "Day 8 Coding Exercises, Mini-Project & FlowBoard Final Sprint",
+        description:
+          "Typed WebSocket broadcasts, fetchJsonWithRetry<T>, node-cron worker, and FlowBoard v1.0.0 release.",
+        type: "ASSIGNMENT",
+        url: "https://drive.google.com/file/d/1-FvkaKg4N8mr_5RM7a0sggCZeYYY-Pgp/view",
+        content: readMaterial("exercises/day-08.md"),
+        order: 2,
+      },
+    ],
     miniProject: {
       title: "WebSocket Notification Ticker & Cron Worker",
       summary:
         "Build a typed WebSocket broadcast server paired with resilient external API fetching and a node-cron background worker.",
-      instructions: `## Objective
-Combine real-time WebSockets, resilient third-party \`fetch\`, and scheduled background jobs.
-
-## Core Requirements
-- Implement typed WebSocket events shared between server and client
-- Build a \`fetchJsonWithRetry<T>\` helper with timeouts and exponential backoff
-- Schedule a \`node-cron\` worker that broadcasts real-time updates
-
-## Stretch & Challenge
-- **Stretch:** Add room/channel subscriptions and \`multer\` attachment uploads
-- **Challenge:** Persist job execution history and dead-letter failures to Postgres`,
+      instructions: readMaterial("exercises/day-08.md"),
       milestones: [
         {
           id: "m1",
@@ -448,6 +552,17 @@ Combine real-time WebSockets, resilient third-party \`fetch\`, and scheduled bac
     slidesTitle: "Day 9: Production Readiness, Observability & Debugging",
     slidesUrl:
       "https://docs.google.com/presentation/d/12TA9WD7XVYLWZfvy5oR-aWlED6G0_HXOWZDDtqXTHj0",
+    extraResources: [
+      {
+        title: "Day 9 Workshop: Observability & Debugging Clinics",
+        description:
+          "Readiness probes, graceful shutdown, correlation IDs, and Railway log/metrics troubleshooting.",
+        type: "ASSIGNMENT",
+        url: "https://drive.google.com/file/d/1H1fve6_3Kqhj0NbU0H6Mg_QCf7EK9g0m/view",
+        content: readMaterial("exercises/day-09.md"),
+        order: 2,
+      },
+    ],
   },
   {
     dayNumber: 10,
@@ -459,6 +574,17 @@ Combine real-time WebSockets, resilient third-party \`fetch\`, and scheduled bac
     slidesTitle: "Day 10: Docker, CI/CD, Cloud Deployment & Wrap-Up",
     slidesUrl:
       "https://docs.google.com/presentation/d/1ntWnj9YInd2LYQrwI6nLy_30OAbtrDGHU7mdbPQXn0Q",
+    extraResources: [
+      {
+        title: "Day 10 Workshop: Docker, CI/CD & Cloud Deployment",
+        description:
+          "Multi-stage Dockerfile, GitHub Actions CI, Neon PostgreSQL, and Railway deployment checklist.",
+        type: "ASSIGNMENT",
+        url: "https://drive.google.com/file/d/1AcbXeTwCUrvQV3qNdOdHC64sKaB3IyMB/view",
+        content: readMaterial("exercises/day-10.md"),
+        order: 2,
+      },
+    ],
   },
 ];
 
@@ -486,6 +612,9 @@ async function seed() {
 
   console.log("Seeding Days 1–10 (Mon–Fri, Nov 16–27, 2026 @ 9:00 AM UTC+1)...");
 
+  let totalResources = 0;
+  let totalMiniProjects = 0;
+
   for (const item of DAY_SEEDS) {
     const [createdDay] = await db
       .insert(days)
@@ -505,6 +634,7 @@ async function seed() {
         description: `Google Slides presentation for Day ${item.dayNumber}.`,
         type: "SLIDES" as const,
         url: item.slidesUrl,
+        content: null,
         order: 1,
         publishedAt: item.publishedAt,
       },
@@ -514,12 +644,14 @@ async function seed() {
         description: extra.description,
         type: extra.type,
         url: extra.url,
+        content: extra.content ?? null,
         order: extra.order,
         publishedAt: item.publishedAt,
       })),
     ];
 
     await db.insert(resources).values(resourceValues);
+    totalResources += resourceValues.length;
 
     if (item.miniProject) {
       await db.insert(miniProjects).values({
@@ -535,11 +667,12 @@ async function seed() {
         order: item.miniProject.order,
         publishedAt: item.publishedAt,
       });
+      totalMiniProjects += 1;
     }
   }
 
   console.log(
-    "Seed completed successfully: 10 days, 11 resources, and 8 mini-projects."
+    `Seed completed successfully: ${DAY_SEEDS.length} days, ${totalResources} resources, and ${totalMiniProjects} mini-projects.`
   );
 }
 

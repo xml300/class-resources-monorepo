@@ -1,7 +1,10 @@
 import { useMemo, useState, type FormEvent } from "react";
 import {
   Calendar,
+  ChevronDown,
+  ChevronUp,
   ExternalLink,
+  FileText,
   FolderOpen,
   KeyRound,
   Layers,
@@ -12,15 +15,22 @@ import {
 import {
   RESOURCE_TYPES,
   RESOURCE_TYPE_LABELS,
+  type ResourceDTO,
   type ResourceType,
 } from "@repo/shared";
 import { useDays } from "../context/DaysContext";
 import { ResourceBadge } from "../components/ResourceBadge";
+import { MarkdownContent } from "../components/MarkdownContent";
 import {
   StudentSidebar,
   useStudentSidebar,
 } from "../layouts/StudentLayout";
 import { api, ApiError } from "../lib/api";
+
+function isMarkdownUrl(url: string): boolean {
+  const clean = url.split("?")[0].split("#")[0].toLowerCase();
+  return clean.endsWith(".md") || clean.endsWith(".markdown");
+}
 
 export function HomePage() {
   const { days, activeDay, refreshDays, loading, error } = useDays();
@@ -36,6 +46,57 @@ export function HomePage() {
   const [retryAfterSeconds, setRetryAfterSeconds] = useState<number | null>(
     null
   );
+  const [expandedMarkdownIds, setExpandedMarkdownIds] = useState<
+    Record<string, boolean>
+  >({});
+  const [fetchedMarkdown, setFetchedMarkdown] = useState<
+    Record<string, string>
+  >({});
+  const [loadingMarkdownIds, setLoadingMarkdownIds] = useState<
+    Record<string, boolean>
+  >({});
+  const [markdownErrors, setMarkdownErrors] = useState<Record<string, string>>(
+    {}
+  );
+
+  const toggleMarkdownResource = async (resource: ResourceDTO) => {
+    const isExpanded = Boolean(expandedMarkdownIds[resource.id]);
+    setExpandedMarkdownIds((prev) => ({
+      ...prev,
+      [resource.id]: !isExpanded,
+    }));
+
+    if (
+      !isExpanded &&
+      !resource.content &&
+      isMarkdownUrl(resource.url) &&
+      fetchedMarkdown[resource.id] === undefined &&
+      !loadingMarkdownIds[resource.id]
+    ) {
+      setLoadingMarkdownIds((prev) => ({ ...prev, [resource.id]: true }));
+      setMarkdownErrors((prev) => {
+        const next = { ...prev };
+        delete next[resource.id];
+        return next;
+      });
+      try {
+        const res = await fetch(resource.url);
+        if (!res.ok) {
+          throw new Error(`Failed to load markdown (${res.status})`);
+        }
+        const text = await res.text();
+        setFetchedMarkdown((prev) => ({ ...prev, [resource.id]: text }));
+      } catch (err) {
+        setMarkdownErrors((prev) => ({
+          ...prev,
+          [resource.id]:
+            err instanceof Error ? err.message : "Unable to load markdown file",
+        }));
+      } finally {
+        setLoadingMarkdownIds((prev) => ({ ...prev, [resource.id]: false }));
+      }
+    }
+  };
 
   const handleUnlock = async (e: FormEvent) => {
     e.preventDefault();
@@ -343,31 +404,124 @@ export function HomePage() {
             </div>
           ) : (
             <div className="space-y-3">
-              {filteredResources.map((resource) => (
-                <a
-                  key={resource.id}
-                  id={`resource-${resource.id}`}
-                  href={resource.url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="group flex scroll-mt-24 items-start justify-between gap-4 rounded-2xl border border-zinc-800 bg-zinc-900/80 p-5 transition hover:border-emerald-700/70 hover:bg-zinc-900"
-                >
-                  <div className="min-w-0 flex-1">
-                    <div className="flex flex-wrap items-center gap-2.5">
-                      <ResourceBadge type={resource.type} />
-                      <h3 className="text-base font-semibold text-zinc-100 group-hover:text-emerald-300">
-                        {resource.title}
-                      </h3>
+              {filteredResources.map((resource) => {
+                const hasMarkdown =
+                  Boolean(resource.content) || isMarkdownUrl(resource.url);
+                const isExpanded = Boolean(expandedMarkdownIds[resource.id]);
+                const markdownBody =
+                  resource.content ?? fetchedMarkdown[resource.id];
+                const isLoadingMd = Boolean(loadingMarkdownIds[resource.id]);
+                const mdError = markdownErrors[resource.id];
+
+                if (!hasMarkdown) {
+                  return (
+                    <a
+                      key={resource.id}
+                      id={`resource-${resource.id}`}
+                      href={resource.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="group flex scroll-mt-24 items-start justify-between gap-4 rounded-2xl border border-zinc-800 bg-zinc-900/80 p-5 transition hover:border-emerald-700/70 hover:bg-zinc-900"
+                    >
+                      <div className="min-w-0 flex-1">
+                        <div className="flex flex-wrap items-center gap-2.5">
+                          <ResourceBadge type={resource.type} />
+                          <h3 className="text-base font-semibold text-zinc-100 group-hover:text-emerald-300">
+                            {resource.title}
+                          </h3>
+                        </div>
+                        {resource.description && (
+                          <p className="mt-2 text-sm leading-relaxed text-zinc-400">
+                            {resource.description}
+                          </p>
+                        )}
+                      </div>
+                      <ExternalLink className="mt-1 h-4 w-4 shrink-0 text-zinc-500 transition group-hover:text-emerald-400" />
+                    </a>
+                  );
+                }
+
+                return (
+                  <div
+                    key={resource.id}
+                    id={`resource-${resource.id}`}
+                    className="scroll-mt-24 rounded-2xl border border-zinc-800 bg-zinc-900/80 transition hover:border-emerald-700/70"
+                  >
+                    <div className="flex items-start justify-between gap-4 p-5">
+                      <button
+                        type="button"
+                        onClick={() => void toggleMarkdownResource(resource)}
+                        className="group min-w-0 flex-1 text-left"
+                      >
+                        <div className="flex flex-wrap items-center gap-2.5">
+                          <ResourceBadge type={resource.type} />
+                          <span className="inline-flex items-center gap-1 rounded-md border border-zinc-700 bg-zinc-800/80 px-2 py-0.5 text-[11px] font-medium text-zinc-300">
+                            <FileText className="h-3 w-3 text-emerald-400" />
+                            Markdown
+                          </span>
+                          <h3 className="text-base font-semibold text-zinc-100 group-hover:text-emerald-300">
+                            {resource.title}
+                          </h3>
+                        </div>
+                        {resource.description && (
+                          <p className="mt-2 text-sm leading-relaxed text-zinc-400">
+                            {resource.description}
+                          </p>
+                        )}
+                      </button>
+
+                      <div className="flex shrink-0 items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => void toggleMarkdownResource(resource)}
+                          className="inline-flex items-center gap-1.5 rounded-lg border border-zinc-700 bg-zinc-800/90 px-3 py-1.5 text-xs font-medium text-zinc-200 transition hover:border-emerald-700 hover:bg-emerald-950/60 hover:text-emerald-200"
+                        >
+                          {isExpanded ? (
+                            <>
+                              Hide
+                              <ChevronUp className="h-3.5 w-3.5" />
+                            </>
+                          ) : (
+                            <>
+                              Read
+                              <ChevronDown className="h-3.5 w-3.5" />
+                            </>
+                          )}
+                        </button>
+                        <a
+                          href={resource.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          title="Open source link"
+                          aria-label={`Open ${resource.title} in new tab`}
+                          className="rounded-lg border border-zinc-800 p-1.5 text-zinc-400 transition hover:border-zinc-700 hover:text-emerald-400"
+                        >
+                          <ExternalLink className="h-4 w-4" />
+                        </a>
+                      </div>
                     </div>
-                    {resource.description && (
-                      <p className="mt-2 text-sm leading-relaxed text-zinc-400">
-                        {resource.description}
-                      </p>
+
+                    {isExpanded && (
+                      <div className="border-t border-zinc-800/90 bg-zinc-950/40 px-5 py-4">
+                        {isLoadingMd ? (
+                          <div className="flex items-center gap-2 py-4 text-xs text-zinc-400">
+                            <div className="h-4 w-4 animate-spin rounded-full border-2 border-emerald-500 border-t-transparent" />
+                            Loading markdown...
+                          </div>
+                        ) : mdError ? (
+                          <p className="text-xs text-red-400">{mdError}</p>
+                        ) : markdownBody ? (
+                          <MarkdownContent content={markdownBody} />
+                        ) : (
+                          <p className="text-xs text-zinc-500 italic">
+                            No markdown content available.
+                          </p>
+                        )}
+                      </div>
                     )}
                   </div>
-                  <ExternalLink className="mt-1 h-4 w-4 shrink-0 text-zinc-500 transition group-hover:text-emerald-400" />
-                </a>
-              ))}
+                );
+              })}
             </div>
           )}
             </>

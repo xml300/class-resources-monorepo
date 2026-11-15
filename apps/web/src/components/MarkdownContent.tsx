@@ -1,15 +1,17 @@
 import type { ReactNode } from "react";
 
 function renderInline(text: string): ReactNode[] {
+  const normalized = text.replace(/\\\$/g, "$");
   const parts: ReactNode[] = [];
-  const regex = /(\*\*[^*]+\*\*|`[^`]+`|\[[^\]]+\]\([^)]+\))/g;
+  const regex =
+    /(\*\*[^*]+\*\*|\*[^*\n]+\*|`[^`]+`|\[[^\]]+\]\([^)]+\))/g;
   let lastIndex = 0;
   let match: RegExpExecArray | null;
   let key = 0;
 
-  while ((match = regex.exec(text)) !== null) {
+  while ((match = regex.exec(normalized)) !== null) {
     if (match.index > lastIndex) {
-      parts.push(text.slice(lastIndex, match.index));
+      parts.push(normalized.slice(lastIndex, match.index));
     }
     const token = match[0];
     if (token.startsWith("**") && token.endsWith("**")) {
@@ -17,6 +19,12 @@ function renderInline(text: string): ReactNode[] {
         <strong key={key++} className="font-semibold text-zinc-100">
           {token.slice(2, -2)}
         </strong>
+      );
+    } else if (token.startsWith("*") && token.endsWith("*")) {
+      parts.push(
+        <em key={key++} className="italic text-zinc-200">
+          {token.slice(1, -1)}
+        </em>
       );
     } else if (token.startsWith("`") && token.endsWith("`")) {
       parts.push(
@@ -48,10 +56,29 @@ function renderInline(text: string): ReactNode[] {
     lastIndex = regex.lastIndex;
   }
 
-  if (lastIndex < text.length) {
-    parts.push(text.slice(lastIndex));
+  if (lastIndex < normalized.length) {
+    parts.push(normalized.slice(lastIndex));
   }
   return parts;
+}
+
+function splitTableRow(line: string): string[] {
+  return line
+    .trim()
+    .replace(/^\|/, "")
+    .replace(/\|$/, "")
+    .split("|")
+    .map((cell) => cell.trim());
+}
+
+function isTableSeparator(line: string): boolean {
+  const trimmed = line.trim();
+  if (!trimmed.includes("|") && !trimmed.includes("-")) return false;
+  const cells = splitTableRow(trimmed);
+  return (
+    cells.length > 0 &&
+    cells.every((cell) => /^:?-{2,}:?$/.test(cell.trim()))
+  );
 }
 
 export function MarkdownContent({ content }: { content: string }) {
@@ -62,10 +89,11 @@ export function MarkdownContent({ content }: { content: string }) {
 
   while (i < lines.length) {
     const line = lines[i];
+    const trimmed = line.trim();
 
     // Fenced code block
-    if (line.trim().startsWith("```")) {
-      const lang = line.trim().slice(3).trim();
+    if (trimmed.startsWith("```")) {
+      const lang = trimmed.slice(3).trim();
       const codeLines: string[] = [];
       i++;
       while (i < lines.length && !lines[i].trim().startsWith("```")) {
@@ -89,7 +117,92 @@ export function MarkdownContent({ content }: { content: string }) {
       continue;
     }
 
+    // Horizontal rule
+    if (/^(-{3,}|\*{3,}|_{3,})$/.test(trimmed)) {
+      blocks.push(<hr key={key++} className="my-5 border-zinc-800" />);
+      i++;
+      continue;
+    }
+
+    // Markdown table
+    if (
+      trimmed.includes("|") &&
+      i + 1 < lines.length &&
+      isTableSeparator(lines[i + 1])
+    ) {
+      const headers = splitTableRow(line);
+      i += 2; // skip header and separator
+      const rows: string[][] = [];
+      while (i < lines.length && lines[i].trim().includes("|")) {
+        rows.push(splitTableRow(lines[i]));
+        i++;
+      }
+      blocks.push(
+        <div
+          key={key++}
+          className="my-3 overflow-x-auto rounded-xl border border-zinc-800"
+        >
+          <table className="w-full border-collapse text-left text-xs sm:text-sm">
+            <thead className="bg-zinc-950/90 text-zinc-200">
+              <tr>
+                {headers.map((header, idx) => (
+                  <th
+                    key={idx}
+                    className="border-b border-zinc-800 px-3.5 py-2.5 font-semibold"
+                  >
+                    {renderInline(header)}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-zinc-800/70 bg-zinc-900/40 text-zinc-300">
+              {rows.map((row, rIdx) => (
+                <tr key={rIdx} className="hover:bg-zinc-900/80">
+                  {headers.map((_, cIdx) => (
+                    <td key={cIdx} className="px-3.5 py-2.5 align-top">
+                      {renderInline(row[cIdx] ?? "")}
+                    </td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      );
+      continue;
+    }
+
+    // Blockquote
+    if (trimmed.startsWith(">")) {
+      const quoteLines: string[] = [];
+      while (i < lines.length && lines[i].trim().startsWith(">")) {
+        quoteLines.push(lines[i].trim().replace(/^>\s?/, ""));
+        i++;
+      }
+      blocks.push(
+        <blockquote
+          key={key++}
+          className="my-3 border-l-2 border-emerald-600/70 bg-zinc-950/60 py-2 pr-3 pl-4 text-sm leading-relaxed text-zinc-300"
+        >
+          {renderInline(quoteLines.join(" "))}
+        </blockquote>
+      );
+      continue;
+    }
+
     // Headings
+    if (line.startsWith("#### ")) {
+      blocks.push(
+        <h4
+          key={key++}
+          className="mt-4 mb-1.5 text-sm font-semibold text-zinc-200"
+        >
+          {renderInline(line.slice(5))}
+        </h4>
+      );
+      i++;
+      continue;
+    }
     if (line.startsWith("### ")) {
       blocks.push(
         <h3
@@ -126,9 +239,13 @@ export function MarkdownContent({ content }: { content: string }) {
 
     // Unordered list
     if (/^\s*[-*]\s+/.test(line)) {
-      const items: string[] = [];
+      const items: Array<{ text: string; indented: boolean }> = [];
       while (i < lines.length && /^\s*[-*]\s+/.test(lines[i])) {
-        items.push(lines[i].replace(/^\s*[-*]\s+/, ""));
+        const indented = /^\s{2,}[-*]\s+/.test(lines[i]);
+        items.push({
+          text: lines[i].replace(/^\s*[-*]\s+/, ""),
+          indented,
+        });
         i++;
       }
       blocks.push(
@@ -137,7 +254,9 @@ export function MarkdownContent({ content }: { content: string }) {
           className="my-3 list-disc space-y-1.5 pl-5 text-sm leading-relaxed text-zinc-300"
         >
           {items.map((item, idx) => (
-            <li key={idx}>{renderInline(item)}</li>
+            <li key={idx} className={item.indented ? "ml-4 list-[circle]" : ""}>
+              {renderInline(item.text)}
+            </li>
           ))}
         </ul>
       );
@@ -165,7 +284,7 @@ export function MarkdownContent({ content }: { content: string }) {
     }
 
     // Blank line
-    if (line.trim() === "") {
+    if (trimmed === "") {
       i++;
       continue;
     }
@@ -177,6 +296,8 @@ export function MarkdownContent({ content }: { content: string }) {
       lines[i].trim() !== "" &&
       !lines[i].startsWith("#") &&
       !lines[i].trim().startsWith("```") &&
+      !lines[i].trim().startsWith(">") &&
+      !/^(-{3,}|\*{3,}|_{3,})$/.test(lines[i].trim()) &&
       !/^\s*[-*]\s+/.test(lines[i]) &&
       !/^\s*\d+\.\s+/.test(lines[i])
     ) {

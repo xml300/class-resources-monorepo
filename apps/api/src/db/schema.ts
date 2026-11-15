@@ -46,6 +46,7 @@ export const resources = pgTable("resources", {
   description: text("description"),
   type: resourceTypeEnum("type").notNull().default("OTHER"),
   url: text("url").notNull(),
+  content: text("content"),
   order: integer("order").notNull().default(0),
   publishedAt: timestamp("published_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true })
