@@ -36,6 +36,14 @@ async function migrate() {
   const upgradeSql = fs.readFileSync(upgradeSqlPath, "utf8");
   await pool.query(upgradeSql);
 
+  const nullableUrlSqlPath = path.join(
+    drizzleDir,
+    "0002_nullable_resource_url.sql"
+  );
+  console.log("Applying 0002_nullable_resource_url.sql...");
+  const nullableUrlSql = fs.readFileSync(nullableUrlSqlPath, "utf8");
+  await pool.query(nullableUrlSql);
+
   console.log("Database migration completed successfully.");
 }
 

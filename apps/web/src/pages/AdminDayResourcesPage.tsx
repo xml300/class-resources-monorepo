@@ -4,9 +4,11 @@ import {
   ArrowLeft,
   ArrowUp,
   ArrowDown,
+  Code2,
   ExternalLink,
   Eye,
   EyeOff,
+  Link2,
   Pencil,
   Plus,
   Trash2,
@@ -33,6 +35,8 @@ interface ResourceFormState {
   description: string;
   type: ResourceType;
   url: string;
+  content: string;
+  codeInputMode: "link" | "paste";
   publishedAt: string | null;
 }
 
@@ -51,6 +55,8 @@ export function AdminDayResourcesPage() {
     description: "",
     type: "SLIDES",
     url: "",
+    content: "",
+    codeInputMode: "link",
     publishedAt: new Date().toISOString(),
   });
   const [uploading, setUploading] = useState(false);
@@ -81,6 +87,8 @@ export function AdminDayResourcesPage() {
       description: "",
       type: "SLIDES",
       url: "",
+      content: "",
+      codeInputMode: "link",
       publishedAt: new Date().toISOString(),
     });
     setFormError(null);
@@ -89,11 +97,15 @@ export function AdminDayResourcesPage() {
 
   const openEditModal = (res: ResourceDTO) => {
     setEditingResource(res);
+    const hasPastedCode =
+      res.type === "CODE" && Boolean(res.content) && !res.url;
     setForm({
       title: res.title,
       description: res.description ?? "",
       type: res.type,
-      url: res.url,
+      url: res.url ?? "",
+      content: res.content ?? "",
+      codeInputMode: hasPastedCode ? "paste" : "link",
       publishedAt: res.publishedAt,
     });
     setFormError(null);
@@ -123,12 +135,23 @@ export function AdminDayResourcesPage() {
     setFormError(null);
     setSaving(true);
     try {
+      const isPasteCode =
+        form.type === "CODE" && form.codeInputMode === "paste";
+      const payloadUrl = isPasteCode ? null : form.url;
+      const payloadContent =
+        form.type === "CODE"
+          ? isPasteCode
+            ? form.content
+            : null
+          : undefined;
+
       if (editingResource) {
         await api.updateResource(editingResource.id, {
           title: form.title,
           description: form.description || null,
           type: form.type,
-          url: form.url,
+          url: payloadUrl,
+          ...(payloadContent !== undefined ? { content: payloadContent } : {}),
           publishedAt: form.publishedAt,
         });
       } else {
@@ -140,7 +163,8 @@ export function AdminDayResourcesPage() {
           title: form.title,
           description: form.description || null,
           type: form.type,
-          url: form.url,
+          url: payloadUrl,
+          content: payloadContent ?? null,
           order: nextOrder,
           publishedAt: form.publishedAt,
         });
@@ -291,15 +315,22 @@ export function AdminDayResourcesPage() {
                       {res.description}
                     </p>
                   )}
-                  <a
-                    href={res.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="mt-1 inline-flex items-center gap-1 text-xs text-emerald-400 hover:underline"
-                  >
-                    <span className="max-w-md truncate">{res.url}</span>
-                    <ExternalLink className="h-3 w-3 shrink-0" />
-                  </a>
+                  {res.url ? (
+                    <a
+                      href={res.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="mt-1 inline-flex items-center gap-1 text-xs text-emerald-400 hover:underline"
+                    >
+                      <span className="max-w-md truncate">{res.url}</span>
+                      <ExternalLink className="h-3 w-3 shrink-0" />
+                    </a>
+                  ) : res.content ? (
+                    <span className="mt-1 inline-flex items-center gap-1 text-xs text-zinc-400">
+                      <Code2 className="h-3.5 w-3.5 text-emerald-400" />
+                      Pasted code ({res.content.split("\n").length} lines)
+                    </span>
+                  ) : null}
                 </div>
 
                 <div className="flex shrink-0 items-center gap-1.5">
@@ -417,34 +448,93 @@ export function AdminDayResourcesPage() {
                 />
               </div>
 
-              <div>
-                <label className="block text-sm font-medium text-zinc-300">
-                  URL or Uploaded File
-                </label>
-                <div className="mt-1 flex gap-2">
-                  <input
-                    type="text"
-                    required
-                    value={form.url}
-                    onChange={(e) => setForm({ ...form, url: e.target.value })}
-                    placeholder="https://... or upload a file"
-                    className="flex-1 rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 placeholder:text-zinc-500 focus:border-emerald-600 focus:outline-none"
-                  />
-                  <label className="inline-flex cursor-pointer items-center gap-1.5 rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm font-medium text-zinc-200 hover:bg-zinc-700">
-                    <Upload className="h-4 w-4" />
-                    {uploading ? "Uploading..." : "Upload"}
-                    <input
-                      type="file"
-                      className="hidden"
-                      disabled={uploading}
-                      onChange={(e) => {
-                        const file = e.target.files?.[0];
-                        if (file) handleFileUpload(file);
-                      }}
-                    />
+              {form.type === "CODE" && (
+                <div>
+                  <label className="block text-sm font-medium text-zinc-300">
+                    Code Source
                   </label>
+                  <div className="mt-1 grid grid-cols-2 gap-2 rounded-lg border border-zinc-800 bg-zinc-950 p-1">
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setForm({ ...form, codeInputMode: "link" })
+                      }
+                      className={`inline-flex items-center justify-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium transition ${
+                        form.codeInputMode === "link"
+                          ? "bg-emerald-800 text-emerald-50"
+                          : "text-zinc-400 hover:text-zinc-200"
+                      }`}
+                    >
+                      <Link2 className="h-3.5 w-3.5" />
+                      URL or File
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setForm({ ...form, codeInputMode: "paste" })
+                      }
+                      className={`inline-flex items-center justify-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium transition ${
+                        form.codeInputMode === "paste"
+                          ? "bg-emerald-800 text-emerald-50"
+                          : "text-zinc-400 hover:text-zinc-200"
+                      }`}
+                    >
+                      <Code2 className="h-3.5 w-3.5" />
+                      Paste Code
+                    </button>
+                  </div>
                 </div>
-              </div>
+              )}
+
+              {form.type === "CODE" && form.codeInputMode === "paste" ? (
+                <div>
+                  <label className="block text-sm font-medium text-zinc-300">
+                    Code
+                  </label>
+                  <textarea
+                    required
+                    rows={8}
+                    value={form.content}
+                    onChange={(e) =>
+                      setForm({ ...form, content: e.target.value })
+                    }
+                    placeholder="Paste your code snippet here..."
+                    spellCheck={false}
+                    className="mt-1 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 font-mono text-xs leading-relaxed text-zinc-100 placeholder:text-zinc-500 focus:border-emerald-600 focus:outline-none"
+                  />
+                </div>
+              ) : (
+                <div>
+                  <label className="block text-sm font-medium text-zinc-300">
+                    URL or Uploaded File
+                  </label>
+                  <div className="mt-1 flex gap-2">
+                    <input
+                      type="text"
+                      required
+                      value={form.url}
+                      onChange={(e) =>
+                        setForm({ ...form, url: e.target.value })
+                      }
+                      placeholder="https://... or upload a file"
+                      className="flex-1 rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 placeholder:text-zinc-500 focus:border-emerald-600 focus:outline-none"
+                    />
+                    <label className="inline-flex cursor-pointer items-center gap-1.5 rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm font-medium text-zinc-200 hover:bg-zinc-700">
+                      <Upload className="h-4 w-4" />
+                      {uploading ? "Uploading..." : "Upload"}
+                      <input
+                        type="file"
+                        className="hidden"
+                        disabled={uploading}
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (file) handleFileUpload(file);
+                        }}
+                      />
+                    </label>
+                  </div>
+                </div>
+              )}
 
               <div>
                 <label className="block text-sm font-medium text-zinc-300">

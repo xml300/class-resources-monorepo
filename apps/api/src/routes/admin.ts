@@ -284,7 +284,7 @@ adminRouter.post("/days/:dayId/resources", async (req, res, next) => {
         title,
         description: description ?? null,
         type,
-        url,
+        url: url ?? null,
         content: content ?? null,
         order,
         publishedAt: publishedAt ? new Date(publishedAt) : null,
@@ -309,6 +309,28 @@ adminRouter.patch("/resources/:id", async (req, res, next) => {
       return;
     }
 
+    const existing = await db.query.resources.findFirst({
+      where: eq(resources.id, req.params.id),
+    });
+    if (!existing) {
+      res.status(404).json({ error: "Resource not found" });
+      return;
+    }
+
+    const nextUrl =
+      parsed.data.url !== undefined ? (parsed.data.url ?? null) : existing.url;
+    const nextContent =
+      parsed.data.content !== undefined
+        ? (parsed.data.content ?? null)
+        : existing.content;
+
+    if (!nextUrl && !nextContent) {
+      res.status(400).json({
+        error: "URL, uploaded file, or pasted code is required",
+      });
+      return;
+    }
+
     const updates: Record<string, unknown> = {
       updatedAt: new Date(),
     };
@@ -316,7 +338,7 @@ adminRouter.patch("/resources/:id", async (req, res, next) => {
     if (parsed.data.description !== undefined)
       updates.description = parsed.data.description ?? null;
     if (parsed.data.type !== undefined) updates.type = parsed.data.type;
-    if (parsed.data.url !== undefined) updates.url = parsed.data.url;
+    if (parsed.data.url !== undefined) updates.url = parsed.data.url ?? null;
     if (parsed.data.content !== undefined)
       updates.content = parsed.data.content ?? null;
     if (parsed.data.order !== undefined) updates.order = parsed.data.order;
@@ -330,11 +352,6 @@ adminRouter.patch("/resources/:id", async (req, res, next) => {
       .set(updates)
       .where(eq(resources.id, req.params.id))
       .returning();
-
-    if (!updated) {
-      res.status(404).json({ error: "Resource not found" });
-      return;
-    }
 
     res.json(updated);
   } catch (err) {

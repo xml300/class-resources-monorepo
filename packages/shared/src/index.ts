@@ -53,17 +53,40 @@ export const unlockDaySchema = z.object({
   password: z.string().min(1, "Password is required").max(200),
 });
 
-export const createResourceSchema = z.object({
+const resourceFieldsSchema = z.object({
   title: z.string().trim().min(1, "Title is required").max(200),
   description: z.string().trim().max(1000).nullable().optional(),
   type: resourceTypeSchema.default("OTHER"),
-  url: z.string().trim().min(1, "URL or file path is required").max(2000),
-  content: z.string().max(100000).nullable().optional(),
+  url: z
+    .string()
+    .trim()
+    .max(2000)
+    .nullable()
+    .optional()
+    .transform((val) => (val && val.length > 0 ? val : null)),
+  content: z
+    .string()
+    .max(100000)
+    .nullable()
+    .optional()
+    .transform((val) => (val && val.trim().length > 0 ? val : null)),
   order: z.coerce.number().int().min(0).optional().default(0),
   publishedAt: z.string().nullable().optional(),
 });
 
-export const updateResourceSchema = createResourceSchema.partial();
+export const createResourceSchema = resourceFieldsSchema.superRefine(
+  (data, ctx) => {
+    if (!data.url && !data.content) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["url"],
+        message: "URL, uploaded file, or pasted code is required",
+      });
+    }
+  }
+);
+
+export const updateResourceSchema = resourceFieldsSchema.partial();
 
 export const miniProjectMilestoneSchema = z.object({
   id: z.string().min(1),
@@ -120,7 +143,7 @@ export interface ResourceDTO {
   title: string;
   description: string | null;
   type: ResourceType;
-  url: string;
+  url: string | null;
   content: string | null;
   order: number;
   publishedAt: string | null;

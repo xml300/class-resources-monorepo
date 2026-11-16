@@ -1,8 +1,11 @@
 import { useMemo, useState, type FormEvent } from "react";
 import {
   Calendar,
+  Check,
   ChevronDown,
   ChevronUp,
+  Code2,
+  Copy,
   ExternalLink,
   FileText,
   FolderOpen,
@@ -27,7 +30,8 @@ import {
 } from "../layouts/StudentLayout";
 import { api, ApiError } from "../lib/api";
 
-function isMarkdownUrl(url: string): boolean {
+function isMarkdownUrl(url: string | null): boolean {
+  if (!url) return false;
   const clean = url.split("?")[0].split("#")[0].toLowerCase();
   return clean.endsWith(".md") || clean.endsWith(".markdown");
 }
@@ -58,6 +62,19 @@ export function HomePage() {
   const [markdownErrors, setMarkdownErrors] = useState<Record<string, string>>(
     {}
   );
+  const [copiedCodeId, setCopiedCodeId] = useState<string | null>(null);
+
+  const handleCopyCode = async (resourceId: string, code: string) => {
+    try {
+      await navigator.clipboard.writeText(code);
+      setCopiedCodeId(resourceId);
+      setTimeout(() => {
+        setCopiedCodeId((prev) => (prev === resourceId ? null : prev));
+      }, 2000);
+    } catch {
+      // Ignore clipboard errors in unsupported contexts
+    }
+  };
 
   const toggleMarkdownResource = async (resource: ResourceDTO) => {
     const isExpanded = Boolean(expandedMarkdownIds[resource.id]);
@@ -69,6 +86,7 @@ export function HomePage() {
     if (
       !isExpanded &&
       !resource.content &&
+      resource.url &&
       isMarkdownUrl(resource.url) &&
       fetchedMarkdown[resource.id] === undefined &&
       !loadingMarkdownIds[resource.id]
@@ -405,20 +423,23 @@ export function HomePage() {
           ) : (
             <div className="space-y-3">
               {filteredResources.map((resource) => {
+                const isCodeSnippet =
+                  resource.type === "CODE" && Boolean(resource.content);
                 const hasMarkdown =
-                  Boolean(resource.content) || isMarkdownUrl(resource.url);
+                  !isCodeSnippet &&
+                  (Boolean(resource.content) || isMarkdownUrl(resource.url));
                 const isExpanded = Boolean(expandedMarkdownIds[resource.id]);
                 const markdownBody =
                   resource.content ?? fetchedMarkdown[resource.id];
                 const isLoadingMd = Boolean(loadingMarkdownIds[resource.id]);
                 const mdError = markdownErrors[resource.id];
 
-                if (!hasMarkdown) {
+                if (!isCodeSnippet && !hasMarkdown) {
                   return (
                     <a
                       key={resource.id}
                       id={`resource-${resource.id}`}
-                      href={resource.url}
+                      href={resource.url ?? "#"}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="group flex scroll-mt-24 items-start justify-between gap-4 rounded-2xl border border-zinc-800 bg-zinc-900/80 p-5 transition hover:border-emerald-700/70 hover:bg-zinc-900"
@@ -456,8 +477,17 @@ export function HomePage() {
                         <div className="flex flex-wrap items-center gap-2.5">
                           <ResourceBadge type={resource.type} />
                           <span className="inline-flex items-center gap-1 rounded-md border border-zinc-700 bg-zinc-800/80 px-2 py-0.5 text-[11px] font-medium text-zinc-300">
-                            <FileText className="h-3 w-3 text-emerald-400" />
-                            Markdown
+                            {isCodeSnippet ? (
+                              <>
+                                <Code2 className="h-3 w-3 text-emerald-400" />
+                                Code
+                              </>
+                            ) : (
+                              <>
+                                <FileText className="h-3 w-3 text-emerald-400" />
+                                Markdown
+                              </>
+                            )}
                           </span>
                           <h3 className="text-base font-semibold text-zinc-100 group-hover:text-emerald-300">
                             {resource.title}
@@ -483,27 +513,57 @@ export function HomePage() {
                             </>
                           ) : (
                             <>
-                              Read
+                              {isCodeSnippet ? "View Code" : "Read"}
                               <ChevronDown className="h-3.5 w-3.5" />
                             </>
                           )}
                         </button>
-                        <a
-                          href={resource.url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          title="Open source link"
-                          aria-label={`Open ${resource.title} in new tab`}
-                          className="rounded-lg border border-zinc-800 p-1.5 text-zinc-400 transition hover:border-zinc-700 hover:text-emerald-400"
-                        >
-                          <ExternalLink className="h-4 w-4" />
-                        </a>
+                        {resource.url && (
+                          <a
+                            href={resource.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            title="Open source link"
+                            aria-label={`Open ${resource.title} in new tab`}
+                            className="rounded-lg border border-zinc-800 p-1.5 text-zinc-400 transition hover:border-zinc-700 hover:text-emerald-400"
+                          >
+                            <ExternalLink className="h-4 w-4" />
+                          </a>
+                        )}
                       </div>
                     </div>
 
                     {isExpanded && (
                       <div className="border-t border-zinc-800/90 bg-zinc-950/40 px-5 py-4">
-                        {isLoadingMd ? (
+                        {isCodeSnippet ? (
+                          <div className="relative">
+                            <button
+                              type="button"
+                              onClick={() =>
+                                void handleCopyCode(
+                                  resource.id,
+                                  resource.content ?? ""
+                                )
+                              }
+                              className="absolute top-3 right-3 inline-flex items-center gap-1.5 rounded-lg border border-zinc-700 bg-zinc-900/90 px-2.5 py-1 text-xs font-medium text-zinc-300 transition hover:border-emerald-700 hover:text-emerald-300"
+                            >
+                              {copiedCodeId === resource.id ? (
+                                <>
+                                  <Check className="h-3.5 w-3.5 text-emerald-400" />
+                                  Copied
+                                </>
+                              ) : (
+                                <>
+                                  <Copy className="h-3.5 w-3.5" />
+                                  Copy
+                                </>
+                              )}
+                            </button>
+                            <pre className="overflow-x-auto rounded-xl border border-zinc-800 bg-zinc-950 p-4 pr-24 font-mono text-xs leading-relaxed text-zinc-200">
+                              <code>{resource.content}</code>
+                            </pre>
+                          </div>
+                        ) : isLoadingMd ? (
                           <div className="flex items-center gap-2 py-4 text-xs text-zinc-400">
                             <div className="h-4 w-4 animate-spin rounded-full border-2 border-emerald-500 border-t-transparent" />
                             Loading markdown...
