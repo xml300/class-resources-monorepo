@@ -292,8 +292,8 @@ export function AdminDashboardPage() {
       {/* Create / Edit Modal */}
       {modalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-xs">
-          <div className="w-full max-w-lg rounded-2xl border border-zinc-800 bg-zinc-900 p-6 shadow-xl">
-            <div className="mb-4 flex items-center justify-between">
+          <div className="flex max-h-[90vh] w-full max-w-lg flex-col overflow-hidden rounded-2xl border border-zinc-800 bg-zinc-900 shadow-xl">
+            <div className="flex shrink-0 items-center justify-between border-b border-zinc-800 px-6 py-4">
               <h2 className="text-lg font-bold text-zinc-100">
                 {editingDay ? `Edit Day ${editingDay.dayNumber}` : "Add New Day"}
               </h2>
@@ -306,13 +306,13 @@ export function AdminDashboardPage() {
               </button>
             </div>
 
-            {formError && (
-              <div className="mb-4 rounded-lg border border-red-900/60 bg-red-950/50 px-3 py-2 text-sm text-red-300">
-                {formError}
-              </div>
-            )}
-
-            <form onSubmit={handleSave} className="space-y-4">
+            <form onSubmit={handleSave} className="flex min-h-0 flex-1 flex-col">
+              <div className="flex-1 space-y-4 overflow-y-auto px-6 py-4">
+                {formError && (
+                  <div className="rounded-lg border border-red-900/60 bg-red-950/50 px-3 py-2 text-sm text-red-300">
+                    {formError}
+                  </div>
+                )}
               <div>
                 <label className="block text-sm font-medium text-zinc-300">
                   Date (optional)
@@ -398,7 +398,9 @@ export function AdminDashboardPage() {
                 )}
               </div>
 
-              <div className="flex justify-end gap-2 pt-2">
+              </div>
+
+              <div className="flex shrink-0 justify-end gap-2 border-t border-zinc-800 px-6 py-4">
                 <button
                   type="button"
                   onClick={() => setModalOpen(false)}

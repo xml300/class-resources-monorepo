@@ -397,8 +397,8 @@ export function AdminProjectsPage() {
       {/* Create / Edit Modal */}
       {modalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4 backdrop-blur-xs">
-          <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-2xl border border-zinc-800 bg-zinc-900 p-6 shadow-xl">
-            <div className="mb-4 flex items-center justify-between">
+          <div className="flex max-h-[90vh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl border border-zinc-800 bg-zinc-900 shadow-xl">
+            <div className="flex shrink-0 items-center justify-between border-b border-zinc-800 px-6 py-4">
               <h2 className="text-lg font-bold text-zinc-100">
                 {editing ? "Edit Mini Project" : "Add Mini Project"}
               </h2>
@@ -411,13 +411,13 @@ export function AdminProjectsPage() {
               </button>
             </div>
 
-            {formError && (
-              <div className="mb-4 rounded-lg border border-red-900/60 bg-red-950/50 px-3 py-2 text-sm text-red-300">
-                {formError}
-              </div>
-            )}
-
-            <form onSubmit={handleSave} className="space-y-5">
+            <form onSubmit={handleSave} className="flex min-h-0 flex-1 flex-col">
+              <div className="flex-1 space-y-5 overflow-y-auto px-6 py-4">
+                {formError && (
+                  <div className="rounded-lg border border-red-900/60 bg-red-950/50 px-3 py-2 text-sm text-red-300">
+                    {formError}
+                  </div>
+                )}
               {/* Core & Metadata */}
               <div className="space-y-3">
                 <h3 className="text-xs font-semibold tracking-wider text-zinc-400 uppercase">
@@ -724,7 +724,9 @@ export function AdminProjectsPage() {
                 }
               />
 
-              <div className="flex justify-end gap-2 pt-2">
+              </div>
+
+              <div className="flex shrink-0 justify-end gap-2 border-t border-zinc-800 px-6 py-4">
                 <button
                   type="button"
                   onClick={() => setModalOpen(false)}
