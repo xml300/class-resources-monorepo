@@ -8,6 +8,7 @@ import {
   Lock,
   Pencil,
   Plus,
+  RefreshCw,
   Trash2,
   X,
 } from "lucide-react";
@@ -48,6 +49,8 @@ export function AdminDashboardPage() {
   });
   const [formError, setFormError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [syncing, setSyncing] = useState(false);
+  const [syncMessage, setSyncMessage] = useState<string | null>(null);
 
   const loadDays = async () => {
     try {
@@ -159,6 +162,27 @@ export function AdminDashboardPage() {
     }
   };
 
+  const handleSyncMaterials = async () => {
+    setError(null);
+    setSyncMessage(null);
+    setSyncing(true);
+    try {
+      const result = await api.syncMaterials();
+      setSyncMessage(
+        `Synced materials: ${result.daysCreated} day(s) created, ${result.daysUpdated} updated; ` +
+          `${result.resourcesCreated} resource(s) created, ${result.resourcesUpdated} updated; ` +
+          `${result.miniProjectsCreated} mini-project(s) created, ${result.miniProjectsUpdated} updated.`
+      );
+      await loadDays();
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : "Failed to sync materials"
+      );
+    } finally {
+      setSyncing(false);
+    }
+  };
+
   return (
     <div>
 
@@ -171,15 +195,34 @@ export function AdminDashboardPage() {
             Create and organize class days, then add resources to each day.
           </p>
         </div>
-        <button
-          type="button"
-          onClick={openCreateModal}
-          className="inline-flex items-center gap-2 rounded-lg bg-emerald-800 px-4 py-2 text-sm font-semibold text-emerald-50 hover:bg-emerald-700"
-        >
-          <Plus className="h-4 w-4" />
-          Add Day
-        </button>
+        <div className="flex flex-wrap items-center gap-2.5">
+          <button
+            type="button"
+            onClick={handleSyncMaterials}
+            disabled={syncing}
+            className="inline-flex items-center gap-2 rounded-lg border border-zinc-700 bg-zinc-800 px-4 py-2 text-sm font-semibold text-zinc-100 hover:bg-zinc-700 disabled:opacity-50"
+          >
+            <RefreshCw
+              className={`h-4 w-4 ${syncing ? "animate-spin" : ""}`}
+            />
+            {syncing ? "Syncing..." : "Sync Materials"}
+          </button>
+          <button
+            type="button"
+            onClick={openCreateModal}
+            className="inline-flex items-center gap-2 rounded-lg bg-emerald-800 px-4 py-2 text-sm font-semibold text-emerald-50 hover:bg-emerald-700"
+          >
+            <Plus className="h-4 w-4" />
+            Add Day
+          </button>
+        </div>
       </div>
+
+      {syncMessage && (
+        <div className="mb-4 rounded-lg border border-emerald-800/60 bg-emerald-950/50 px-4 py-3 text-sm text-emerald-200">
+          {syncMessage}
+        </div>
+      )}
 
       {error && (
         <div className="mb-4 rounded-lg border border-red-900/60 bg-red-950/50 px-4 py-3 text-sm text-red-300">

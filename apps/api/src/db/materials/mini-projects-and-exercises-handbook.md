@@ -44,7 +44,7 @@ Build a command-line task manager that persists tasks to `data.json`.
 
 ---
 
-## Day 2: Node.js Ecosystem, Modules, Async JS & HTTP Fundamentals
+## Day 2: Node.js Ecosystem, Modules, Async JS & Streams
 
 ### 1. Morning Warm-Up (9:00 – 9:15 AM)
 **Predict the execution order:**
@@ -61,27 +61,26 @@ console.log("4: end");
   Given a mock `fetchPrice(id)` taking 300ms, refactor a `for...of` `await` loop over 5 IDs to `Promise.all` and log total elapsed time (`~1500ms` → `~300ms`).
 * **Exercise 2.2 — Streaming Line Counter (`stream/promises`):**  
   Use `fs.createReadStream()` + `readline` (or `Transform` stream) with `pipeline` to count error lines in a large log file without loading it all into memory.
-* **Exercise 2.3 — 2-Route `node:http` Server:**  
-  Build an ESM server with `GET /health` (`200 { ok: true }`) and `POST /echo` (reads request body chunks and echoes JSON back).
+* **Exercise 2.3 — Custom `Transform` Log Redactor:**  
+  Use `Transform` from `node:stream` and `pipeline()` to redact `SECRET_KEY=\w+` in `app.log` and write `app.sanitized.log`.
 
-### 3. Mini-Project: Zero-Dependency Quote / URL Shortener HTTP API
-Build a REST-style JSON API using **only built-in Node.js modules** (`node:http`, `node:fs/promises`, `node:crypto`).
+### 3. Mini-Project: Streaming CSV & Log Analyzer CLI
+Build a zero-dependency CLI using **only built-in Node.js modules** (`node:fs`, `node:stream/promises`, `node:zlib`).
 * **Core (Required):**
-  * `GET /links` — list all saved short links.
-  * `POST /links` — accept `{ url }`, generate a 6-char code with `crypto.randomBytes(3).toString("hex")`, save to `links.json`, return `201`.
-  * `GET /:code` — respond with `302` redirect (`Location` header) or `404` JSON error.
+  * Stream a `.log` or `.csv` file with `createReadStream()` + `Transform` + `pipeline()`.
+  * Compute summary stats (total lines, error count, warning count) and write `summary.json`.
 * **Stretch:**
-  * Track `clicks` count per link and return `GET /links/:code/stats`.
-  * Validate that `url` starts with `http://` or `https://` (`400` otherwise).
+  * Redact sensitive tokens in a `Transform` stream and write malformed rows to `errors.log`.
+  * Add a `--gzip` flag using `node:zlib`.
 * **Challenge:**
-  * Add a `GET /export` route that streams `links.json` using `fs.createReadStream` + `pipeline` with `Content-Encoding: gzip` (via `node:zlib`).
+  * Process a directory of files concurrently with `Promise.allSettled()` and report elapsed time + peak RSS memory.
 
 ---
 
-## Day 3: TypeScript Foundations & Connecting Node to a Frontend
+## Day 3: TypeScript Foundations, `node:http` & Connecting Node to a Frontend
 
-### 1. Morning Warm-Up (9:00 – 9:15 AM)
-**Spot the TypeScript bug:**
+### 1. Morning Warm-Up & Day 1–2 Recap (9:00 – 9:30 AM)
+**Spot the TypeScript bug + Day 1–2 Deep Dive (`day-03-recap.md`):**
 ```ts
 function parseId(input: unknown): number {
   return Number(input.trim());
@@ -90,9 +89,12 @@ function parseId(input: unknown): number {
 *Fix:* Narrow `typeof input === "string"` before calling `.trim()`, and check `!Number.isNaN(...)`.
 
 ### 2. Guided Coding Exercises (10:45 – 12:00 PM)
+* **Recap Drills (`day-03-recap.md`):** Immutability, defensive `ENOENT` vs. `SyntaxError` file loading, event loop trace, `Promise.race` + `allSettled`, and `Transform` stream filtering.
 * **Exercise 3.1 — Strict TS Migration & `Result<T, E>`:**  
   Convert a plain JS config-loader module to strict TypeScript (`strict: true`, `noUncheckedIndexedAccess: true`), returning a discriminated union `Result<Config, string>`.
-* **Exercise 3.2 — Typed `parseJsonBody<T>(req)` & CORS Helper:**  
+* **Exercise 3.2 — 2-Route `node:http` Server (Moved from Day 2):**  
+  Build a TypeScript `node:http` server with `GET /health` (`200 { ok: true }`) and `POST /echo` (reads request stream chunks and echoes JSON back).
+* **Exercise 3.3 — Typed `parseJsonBody<T>(req)` & CORS Helper:**  
   Write a generic `parseJsonBody<T>(req: IncomingMessage): Promise<T>` that rejects payloads over 1MB and handles invalid JSON cleanly, plus a CORS header helper.
 
 ### 3. Mini-Project: Strict-TS HTTP API + `day03-frontend/` Integration
