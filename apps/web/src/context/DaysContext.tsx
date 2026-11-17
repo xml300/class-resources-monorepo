@@ -14,7 +14,7 @@ interface DaysContextValue {
   days: DayWithResourcesDTO[];
   activeDay: DayWithResourcesDTO | null;
   setActiveDayNumber: (dayNumber: number) => void;
-  refreshDays: () => Promise<void>;
+  refreshDays: () => Promise<DayWithResourcesDTO[] | undefined>;
   loading: boolean;
   error: string | null;
 }
@@ -29,12 +29,29 @@ export function DaysProvider({ children }: { children: ReactNode }) {
   const location = useLocation();
   const navigate = useNavigate();
 
+  const dayParamRaw = searchParams.get("day");
+  const dayParam = dayParamRaw ? Number(dayParamRaw) : NaN;
+  const hasValidDayParam = Number.isFinite(dayParam) && dayParam > 0;
+
+  const [selectedDayNumber, setSelectedDayNumber] = useState<number | null>(
+    () => (hasValidDayParam ? dayParam : null)
+  );
+
+  useEffect(() => {
+    if (hasValidDayParam) {
+      setSelectedDayNumber(dayParam);
+    }
+  }, [hasValidDayParam, dayParam]);
+
   const refreshDays = useCallback(async () => {
     try {
       const data = await api.getPublicDays();
       setDays(data);
+      setError(null);
+      return data;
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load days");
+      return undefined;
     }
   }, []);
 
@@ -42,11 +59,16 @@ export function DaysProvider({ children }: { children: ReactNode }) {
     refreshDays().finally(() => setLoading(false));
   }, [refreshDays]);
 
-  const dayParam = Number(searchParams.get("day"));
+  const targetDayNumber = hasValidDayParam ? dayParam : selectedDayNumber;
   const activeDay =
-    days.find((d) => d.dayNumber === dayParam) ?? days[0] ?? null;
+    (targetDayNumber !== null
+      ? days.find((d) => d.dayNumber === targetDayNumber)
+      : undefined) ??
+    days[0] ??
+    null;
 
   const setActiveDayNumber = (dayNumber: number) => {
+    setSelectedDayNumber(dayNumber);
     if (location.pathname !== "/") {
       navigate(`/?day=${dayNumber}`);
     } else {

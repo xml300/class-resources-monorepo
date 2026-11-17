@@ -12,6 +12,7 @@ import {
   KeyRound,
   Layers,
   Lock,
+  RefreshCw,
   Search,
   ShieldAlert,
 } from "lucide-react";
@@ -56,12 +57,16 @@ export function HomePage() {
   const [fetchedMarkdown, setFetchedMarkdown] = useState<
     Record<string, string>
   >({});
+  const [fetchedMarkdownUrls, setFetchedMarkdownUrls] = useState<
+    Record<string, string>
+  >({});
   const [loadingMarkdownIds, setLoadingMarkdownIds] = useState<
     Record<string, boolean>
   >({});
   const [markdownErrors, setMarkdownErrors] = useState<Record<string, string>>(
     {}
   );
+  const [refreshingAll, setRefreshingAll] = useState(false);
   const [copiedCodeId, setCopiedCodeId] = useState<string | null>(null);
 
   const handleCopyCode = async (resourceId: string, code: string) => {
@@ -76,6 +81,57 @@ export function HomePage() {
     }
   };
 
+  const fetchMarkdownResource = async (
+    resource: ResourceDTO,
+    force = false
+  ) => {
+    if (
+      resource.content ||
+      !resource.url ||
+      !isMarkdownUrl(resource.url)
+    ) {
+      return;
+    }
+    if (
+      !force &&
+      fetchedMarkdown[resource.id] !== undefined &&
+      fetchedMarkdownUrls[resource.id] === resource.url
+    ) {
+      return;
+    }
+    if (loadingMarkdownIds[resource.id]) {
+      return;
+    }
+
+    setLoadingMarkdownIds((prev) => ({ ...prev, [resource.id]: true }));
+    setMarkdownErrors((prev) => {
+      const next = { ...prev };
+      delete next[resource.id];
+      return next;
+    });
+    try {
+      const res = await fetch(resource.url, { cache: "no-store" });
+      if (!res.ok) {
+        throw new Error(`Failed to load markdown (${res.status})`);
+      }
+      const text = await res.text();
+      const fetchedUrl = resource.url;
+      setFetchedMarkdown((prev) => ({ ...prev, [resource.id]: text }));
+      setFetchedMarkdownUrls((prev) => ({
+        ...prev,
+        [resource.id]: fetchedUrl,
+      }));
+    } catch (err) {
+      setMarkdownErrors((prev) => ({
+        ...prev,
+        [resource.id]:
+          err instanceof Error ? err.message : "Unable to load markdown file",
+      }));
+    } finally {
+      setLoadingMarkdownIds((prev) => ({ ...prev, [resource.id]: false }));
+    }
+  };
+
   const toggleMarkdownResource = async (resource: ResourceDTO) => {
     const isExpanded = Boolean(expandedMarkdownIds[resource.id]);
     setExpandedMarkdownIds((prev) => ({
@@ -83,36 +139,94 @@ export function HomePage() {
       [resource.id]: !isExpanded,
     }));
 
-    if (
-      !isExpanded &&
-      !resource.content &&
-      resource.url &&
-      isMarkdownUrl(resource.url) &&
-      fetchedMarkdown[resource.id] === undefined &&
-      !loadingMarkdownIds[resource.id]
-    ) {
-      setLoadingMarkdownIds((prev) => ({ ...prev, [resource.id]: true }));
-      setMarkdownErrors((prev) => {
-        const next = { ...prev };
-        delete next[resource.id];
-        return next;
-      });
-      try {
-        const res = await fetch(resource.url);
+    if (!isExpanded) {
+      await fetchMarkdownResource(resource);
+    }
+  };
+
+  const refreshMarkdownResource = async (resource: ResourceDTO) => {
+    setLoadingMarkdownIds((prev) => ({ ...prev, [resource.id]: true }));
+    setMarkdownErrors((prev) => {
+      const next = { ...prev };
+      delete next[resource.id];
+      return next;
+    });
+    try {
+      const latestDays = await refreshDays();
+      const latestResource =
+        latestDays
+          ?.flatMap((d) => d.resources)
+          .find((r) => r.id === resource.id) ?? resource;
+
+      if (
+        !latestResource.content &&
+        latestResource.url &&
+        isMarkdownUrl(latestResource.url)
+      ) {
+        const res = await fetch(latestResource.url, { cache: "no-store" });
         if (!res.ok) {
           throw new Error(`Failed to load markdown (${res.status})`);
         }
         const text = await res.text();
-        setFetchedMarkdown((prev) => ({ ...prev, [resource.id]: text }));
-      } catch (err) {
-        setMarkdownErrors((prev) => ({
+        const fetchedUrl = latestResource.url;
+        setFetchedMarkdown((prev) => ({
           ...prev,
-          [resource.id]:
-            err instanceof Error ? err.message : "Unable to load markdown file",
+          [latestResource.id]: text,
         }));
-      } finally {
-        setLoadingMarkdownIds((prev) => ({ ...prev, [resource.id]: false }));
+        setFetchedMarkdownUrls((prev) => ({
+          ...prev,
+          [latestResource.id]: fetchedUrl,
+        }));
       }
+    } catch (err) {
+      setMarkdownErrors((prev) => ({
+        ...prev,
+        [resource.id]:
+          err instanceof Error ? err.message : "Unable to load markdown file",
+      }));
+    } finally {
+      setLoadingMarkdownIds((prev) => ({ ...prev, [resource.id]: false }));
+    }
+  };
+
+  const handleRefreshDay = async () => {
+    if (refreshingAll) return;
+    setRefreshingAll(true);
+    try {
+      const latestDays = await refreshDays();
+      const targetDay =
+        latestDays?.find((d) => d.id === activeDay?.id) ?? activeDay;
+
+      // Clear cached markdown for collapsed resources so they fetch fresh when opened
+      setFetchedMarkdown((prev) => {
+        const next: Record<string, string> = {};
+        for (const [id, val] of Object.entries(prev)) {
+          if (expandedMarkdownIds[id]) next[id] = val;
+        }
+        return next;
+      });
+      setFetchedMarkdownUrls((prev) => {
+        const next: Record<string, string> = {};
+        for (const [id, val] of Object.entries(prev)) {
+          if (expandedMarkdownIds[id]) next[id] = val;
+        }
+        return next;
+      });
+
+      if (targetDay) {
+        const expandedUrlResources = targetDay.resources.filter(
+          (res) =>
+            expandedMarkdownIds[res.id] &&
+            !res.content &&
+            res.url &&
+            isMarkdownUrl(res.url)
+        );
+        await Promise.all(
+          expandedUrlResources.map((res) => fetchMarkdownResource(res, true))
+        );
+      }
+    } finally {
+      setRefreshingAll(false);
     }
   };
 
@@ -501,6 +615,21 @@ export function HomePage() {
                       </button>
 
                       <div className="flex shrink-0 items-center gap-2">
+                        {!isCodeSnippet && isExpanded && (
+                          <button
+                            type="button"
+                            onClick={() => void refreshMarkdownResource(resource)}
+                            disabled={isLoadingMd}
+                            title="Refresh markdown"
+                            aria-label={`Refresh ${resource.title}`}
+                            className="inline-flex items-center gap-1.5 rounded-lg border border-zinc-700 bg-zinc-800/90 px-2.5 py-1.5 text-xs font-medium text-zinc-200 transition hover:border-emerald-700 hover:bg-emerald-950/60 hover:text-emerald-200 disabled:opacity-50"
+                          >
+                            <RefreshCw
+                              className={`h-3.5 w-3.5 ${isLoadingMd ? "animate-spin" : ""}`}
+                            />
+                            <span className="hidden sm:inline">Refresh</span>
+                          </button>
+                        )}
                         <button
                           type="button"
                           onClick={() => void toggleMarkdownResource(resource)}
@@ -563,13 +692,26 @@ export function HomePage() {
                               <code>{resource.content}</code>
                             </pre>
                           </div>
-                        ) : isLoadingMd ? (
+                        ) : isLoadingMd && !markdownBody ? (
                           <div className="flex items-center gap-2 py-4 text-xs text-zinc-400">
                             <div className="h-4 w-4 animate-spin rounded-full border-2 border-emerald-500 border-t-transparent" />
                             Loading markdown...
                           </div>
                         ) : mdError ? (
-                          <p className="text-xs text-red-400">{mdError}</p>
+                          <div className="flex items-center justify-between gap-3">
+                            <p className="text-xs text-red-400">{mdError}</p>
+                            <button
+                              type="button"
+                              onClick={() => void refreshMarkdownResource(resource)}
+                              disabled={isLoadingMd}
+                              className="inline-flex items-center gap-1.5 rounded-lg border border-zinc-700 bg-zinc-800/90 px-2.5 py-1 text-xs font-medium text-zinc-200 transition hover:border-emerald-700 hover:text-emerald-200 disabled:opacity-50"
+                            >
+                              <RefreshCw
+                                className={`h-3.5 w-3.5 ${isLoadingMd ? "animate-spin" : ""}`}
+                              />
+                              Retry
+                            </button>
+                          </div>
                         ) : markdownBody ? (
                           <MarkdownContent content={markdownBody} />
                         ) : (

@@ -11,6 +11,7 @@ import {
   ExternalLink,
   FileText,
   Play,
+  RefreshCw,
   RotateCcw,
   Sparkles,
 } from "lucide-react";
@@ -36,8 +37,22 @@ export function ProjectDetailPage() {
   const { id } = useParams<{ id: string }>();
   const [project, setProject] = useState<MiniProjectDTO | null>(null);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [completedIds, setCompletedIds] = useState<string[]>([]);
+
+  const handleRefresh = async () => {
+    if (!id || refreshing) return;
+    setRefreshing(true);
+    try {
+      const data = await api.getPublicMiniProject(id);
+      setProject(data);
+    } catch {
+      // Keep existing project view on transient refresh failure
+    } finally {
+      setRefreshing(false);
+    }
+  };
 
   useEffect(() => {
     if (!id) return;
@@ -363,9 +378,24 @@ export function ProjectDetailPage() {
 
       {/* Rich Content */}
       <div className="rounded-2xl border border-zinc-800 bg-zinc-900/70 p-6 sm:p-8">
-        <h2 className="mb-4 text-xs font-semibold tracking-wider text-zinc-400 uppercase">
-          Project Brief & Instructions
-        </h2>
+        <div className="mb-4 flex items-center justify-between gap-3">
+          <h2 className="text-xs font-semibold tracking-wider text-zinc-400 uppercase">
+            Project Brief & Instructions
+          </h2>
+          <button
+            type="button"
+            onClick={() => void handleRefresh()}
+            disabled={refreshing}
+            title="Refresh project instructions"
+            aria-label="Refresh project instructions"
+            className="inline-flex items-center gap-1.5 rounded-lg border border-zinc-700 bg-zinc-800/80 px-2.5 py-1 text-xs font-medium text-zinc-300 transition hover:border-emerald-700 hover:bg-emerald-950/60 hover:text-emerald-200 disabled:opacity-50"
+          >
+            <RefreshCw
+              className={`h-3.5 w-3.5 ${refreshing ? "animate-spin" : ""}`}
+            />
+            Refresh
+          </button>
+        </div>
         {project.instructions ? (
           <MarkdownContent content={project.instructions} />
         ) : (
