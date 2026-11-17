@@ -64,10 +64,9 @@ const MINI_PROJECT_MATERIAL_PATHS: Record<string, string> = {
   "WebSocket Notification Ticker & Cron Worker": "mini-projects/day-08.md",
 };
 
-function readIfNewerOnDisk(
+function readMaterialFromDisk(
   relPath: string | undefined,
-  fallback: string | null,
-  dbUpdatedAt?: Date | string | null
+  fallback: string | null
 ): string | null {
   if (!relPath) return fallback;
   const materialsDir = findMaterialsDir();
@@ -75,11 +74,7 @@ function readIfNewerOnDisk(
 
   const fullPath = path.join(materialsDir, relPath);
   try {
-    const stat = fs.statSync(fullPath);
-    const updatedMs = dbUpdatedAt ? new Date(dbUpdatedAt).getTime() : 0;
-    if (!fallback || stat.mtimeMs > updatedMs) {
-      return fs.readFileSync(fullPath, "utf8");
-    }
+    return fs.readFileSync(fullPath, "utf8");
   } catch {
     // Fall back to DB content if file is missing or unreadable
   }
@@ -89,23 +84,19 @@ function readIfNewerOnDisk(
 export function resolveResourceContent(resource: {
   title: string;
   content: string | null;
-  updatedAt?: Date | string | null;
 }): string | null {
-  return readIfNewerOnDisk(
+  return readMaterialFromDisk(
     RESOURCE_MATERIAL_PATHS[resource.title],
-    resource.content,
-    resource.updatedAt
+    resource.content
   );
 }
 
 export function resolveMiniProjectInstructions(project: {
   title: string;
   instructions: string | null;
-  updatedAt?: Date | string | null;
 }): string | null {
-  return readIfNewerOnDisk(
+  return readMaterialFromDisk(
     MINI_PROJECT_MATERIAL_PATHS[project.title],
-    project.instructions,
-    project.updatedAt
+    project.instructions
   );
 }
