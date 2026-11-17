@@ -14,6 +14,7 @@ import {
   writeUnlockedDaysCookie,
 } from "../lib/dayPassword.js";
 import { createRateLimiter } from "../middleware/rateLimit.js";
+import { resolveResourceContent } from "../lib/materialsSync.js";
 
 export const daysRouter = Router();
 
@@ -25,12 +26,18 @@ const unlockRateLimiter = createRateLimiter({
     "Too many unlock requests from your device. Please wait a minute and try again.",
 });
 
+interface PublicResourceRow {
+  title: string;
+  content: string | null;
+  updatedAt?: Date | string | null;
+}
+
 function serializePublicDay<
   T extends {
     id: string;
     passwordHash: string | null;
     summary: string | null;
-    resources: unknown[];
+    resources: PublicResourceRow[];
   },
 >(req: Request, day: T) {
   const { passwordHash, ...rest } = day;
@@ -49,6 +56,10 @@ function serializePublicDay<
 
   return {
     ...rest,
+    resources: rest.resources.map((res) => ({
+      ...res,
+      content: resolveResourceContent(res),
+    })),
     hasPassword,
     isLocked: false,
   };
