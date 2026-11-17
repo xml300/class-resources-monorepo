@@ -14,7 +14,11 @@ import {
   writeUnlockedDaysCookie,
 } from "../lib/dayPassword.js";
 import { createRateLimiter } from "../middleware/rateLimit.js";
-import { resolveResourceContent } from "../lib/materialsSync.js";
+import {
+  extractGoogleDriveFileId,
+  fetchRemoteMarkdown,
+  isMarkdownUrl,
+} from "../lib/driveMarkdown.js";
 
 export const daysRouter = Router();
 
@@ -26,18 +30,12 @@ const unlockRateLimiter = createRateLimiter({
     "Too many unlock requests from your device. Please wait a minute and try again.",
 });
 
-interface PublicResourceRow {
-  title: string;
-  content: string | null;
-  updatedAt?: Date | string | null;
-}
-
 function serializePublicDay<
   T extends {
     id: string;
     passwordHash: string | null;
     summary: string | null;
-    resources: PublicResourceRow[];
+    resources: unknown[];
   },
 >(req: Request, day: T) {
   const { passwordHash, ...rest } = day;
@@ -56,10 +54,6 @@ function serializePublicDay<
 
   return {
     ...rest,
-    resources: rest.resources.map((res) => ({
-      ...res,
-      content: resolveResourceContent(res),
-    })),
     hasPassword,
     isLocked: false,
   };
@@ -248,5 +242,131 @@ daysRouter.post("/:id/unlock", unlockRateLimiter, async (req, res, next) => {
     next(err);
   }
 });
+
+daysRouter.post("/:id/refresh", async (req, res, next) => {
+  try {
+    const now = new Date();
+    const day = await db.query.days.findFirst({
+      where: and(
+        eq(days.id, req.params.id),
+        isNotNull(days.publishedAt),
+        lte(days.publishedAt, now)
+      ),
+      with: {
+        resources: {
+          where: and(
+            isNotNull(resources.publishedAt),
+            lte(resources.publishedAt, now)
+          ),
+          orderBy: [asc(resources.order), asc(resources.createdAt)],
+        },
+      },
+    });
+
+    if (!day) {
+      res.status(404).json({ error: "Day not found" });
+      return;
+    }
+
+    if (!isDayUnlockedForRequest(req, day)) {
+      res.status(403).json({ error: "Day is locked" });
+      return;
+    }
+
+    const syncTargets = day.resources.filter(
+      (r) =>
+        r.url &&
+        (extractGoogleDriveFileId(r.url) !== null || isMarkdownUrl(r.url)) &&
+        (r.content !== null || isMarkdownUrl(r.url))
+    );
+
+    await Promise.allSettled(
+      syncTargets.map(async (resource) => {
+        if (!resource.url) return;
+        const fresh = await fetchRemoteMarkdown(resource.url);
+        if (fresh !== null) {
+          await db
+            .update(resources)
+            .set({ content: fresh, updatedAt: new Date() })
+            .where(eq(resources.id, resource.id));
+        }
+      })
+    );
+
+    const refreshedDay = await db.query.days.findFirst({
+      where: eq(days.id, day.id),
+      with: {
+        resources: {
+          where: and(
+            isNotNull(resources.publishedAt),
+            lte(resources.publishedAt, now)
+          ),
+          orderBy: [asc(resources.order), asc(resources.createdAt)],
+        },
+      },
+    });
+
+    res.json(serializePublicDay(req, refreshedDay ?? day));
+  } catch (err) {
+    next(err);
+  }
+});
+
+daysRouter.post(
+  "/:id/resources/:resourceId/refresh",
+  async (req, res, next) => {
+    try {
+      const now = new Date();
+      const day = await db.query.days.findFirst({
+        where: and(
+          eq(days.id, req.params.id),
+          isNotNull(days.publishedAt),
+          lte(days.publishedAt, now)
+        ),
+      });
+
+      if (!day) {
+        res.status(404).json({ error: "Day not found" });
+        return;
+      }
+
+      if (!isDayUnlockedForRequest(req, day)) {
+        res.status(403).json({ error: "Day is locked" });
+        return;
+      }
+
+      const resource = await db.query.resources.findFirst({
+        where: and(
+          eq(resources.id, req.params.resourceId),
+          eq(resources.dayId, day.id),
+          isNotNull(resources.publishedAt),
+          lte(resources.publishedAt, now)
+        ),
+      });
+
+      if (!resource) {
+        res.status(404).json({ error: "Resource not found" });
+        return;
+      }
+
+      if (resource.url) {
+        const fresh = await fetchRemoteMarkdown(resource.url);
+        if (fresh !== null) {
+          const [updated] = await db
+            .update(resources)
+            .set({ content: fresh, updatedAt: new Date() })
+            .where(eq(resources.id, resource.id))
+            .returning();
+          res.json({ resource: updated });
+          return;
+        }
+      }
+
+      res.json({ resource });
+    } catch (err) {
+      next(err);
+    }
+  }
+);
 
 

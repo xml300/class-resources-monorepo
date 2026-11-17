@@ -71,6 +71,17 @@ export const api = {
       method: "POST",
       body: JSON.stringify({ password }),
     }),
+  refreshDayResources: (dayId: string) =>
+    request<DayWithResourcesDTO>(`/api/days/${dayId}/refresh`, {
+      method: "POST",
+    }),
+  refreshResourceMarkdown: (dayId: string, resourceId: string) =>
+    request<{ resource: ResourceDTO }>(
+      `/api/days/${dayId}/resources/${resourceId}/refresh`,
+      {
+        method: "POST",
+      }
+    ),
   getPublicMiniProjects: () => request<MiniProjectDTO[]>("/api/mini-projects"),
   getPublicMiniProject: (id: string) =>
     request<MiniProjectDTO>(`/api/mini-projects/${id}`),

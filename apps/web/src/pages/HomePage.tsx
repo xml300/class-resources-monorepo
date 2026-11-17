@@ -152,6 +152,7 @@ export function HomePage() {
       return next;
     });
     try {
+      await api.refreshResourceMarkdown(resource.dayId, resource.id);
       const latestDays = await refreshDays();
       const latestResource =
         latestDays
@@ -193,6 +194,9 @@ export function HomePage() {
     if (refreshingAll) return;
     setRefreshingAll(true);
     try {
+      if (activeDay && !activeDay.isLocked) {
+        await api.refreshDayResources(activeDay.id);
+      }
       const latestDays = await refreshDays();
       const targetDay =
         latestDays?.find((d) => d.id === activeDay?.id) ?? activeDay;

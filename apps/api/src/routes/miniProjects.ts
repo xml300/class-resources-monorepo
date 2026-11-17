@@ -2,7 +2,6 @@ import { Router } from "express";
 import { and, asc, eq, isNotNull, lte } from "drizzle-orm";
 import { db } from "../db/index.js";
 import { miniProjects } from "../db/schema.js";
-import { resolveMiniProjectInstructions } from "../lib/materialsSync.js";
 
 export const miniProjectsRouter = Router();
 
@@ -29,7 +28,6 @@ miniProjectsRouter.get("/", async (_req, res, next) => {
 
     const sanitized = rows.map(({ day, ...project }) => ({
       ...project,
-      instructions: resolveMiniProjectInstructions(project),
       day:
         day && day.publishedAt && day.publishedAt <= now
           ? { id: day.id, dayNumber: day.dayNumber, title: day.title }
@@ -71,7 +69,6 @@ miniProjectsRouter.get("/:id", async (req, res, next) => {
     const { day, ...project } = row;
     res.json({
       ...project,
-      instructions: resolveMiniProjectInstructions(project),
       day:
         day && day.publishedAt && day.publishedAt <= now
           ? { id: day.id, dayNumber: day.dayNumber, title: day.title }
