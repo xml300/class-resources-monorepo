@@ -6,6 +6,7 @@ import type {
   LoginInput,
   MiniProjectDTO,
   ResourceDTO,
+  ResourceWithDayDTO,
   UpdateDayInput,
   UpdateMiniProjectInput,
   UpdateResourceInput,
@@ -82,6 +83,12 @@ export const api = {
         method: "POST",
       }
     ),
+  getPublicExercises: () => request<ResourceWithDayDTO[]>("/api/exercises"),
+  getPublicExercise: (id: string) =>
+    request<ResourceWithDayDTO>(`/api/exercises/${id}`),
+  getPublicCodeResources: () => request<ResourceWithDayDTO[]>("/api/code"),
+  getPublicCodeResource: (id: string) =>
+    request<ResourceWithDayDTO>(`/api/code/${id}`),
   getPublicMiniProjects: () => request<MiniProjectDTO[]>("/api/mini-projects"),
   getPublicMiniProject: (id: string) =>
     request<MiniProjectDTO>(`/api/mini-projects/${id}`),

@@ -7,6 +7,8 @@ import cookieParser from "cookie-parser";
 import { env } from "./env.js";
 import { authRouter } from "./routes/auth.js";
 import { daysRouter } from "./routes/days.js";
+import { exercisesRouter } from "./routes/exercises.js";
+import { codeRouter } from "./routes/code.js";
 import { miniProjectsRouter } from "./routes/miniProjects.js";
 import { adminRouter } from "./routes/admin.js";
 
@@ -33,6 +35,8 @@ export function createApp() {
 
   app.use("/api/auth", authRouter);
   app.use("/api/days", daysRouter);
+  app.use("/api/exercises", exercisesRouter);
+  app.use("/api/code", codeRouter);
   app.use("/api/mini-projects", miniProjectsRouter);
   app.use("/api/admin", adminRouter);
 

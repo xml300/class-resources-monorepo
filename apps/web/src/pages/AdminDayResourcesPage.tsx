@@ -16,6 +16,8 @@ import {
   X,
 } from "lucide-react";
 import {
+  CODE_LANGUAGES,
+  CODE_LANGUAGE_LABELS,
   getPublishStatus,
   RESOURCE_TYPES,
   RESOURCE_TYPE_LABELS,
@@ -36,6 +38,8 @@ interface ResourceFormState {
   type: ResourceType;
   url: string;
   content: string;
+  language: string;
+  filename: string;
   codeInputMode: "link" | "paste";
   publishedAt: string | null;
 }
@@ -56,6 +60,8 @@ export function AdminDayResourcesPage() {
     type: "SLIDES",
     url: "",
     content: "",
+    language: "",
+    filename: "",
     codeInputMode: "link",
     publishedAt: new Date().toISOString(),
   });
@@ -88,6 +94,8 @@ export function AdminDayResourcesPage() {
       type: "SLIDES",
       url: "",
       content: "",
+      language: "",
+      filename: "",
       codeInputMode: "link",
       publishedAt: new Date().toISOString(),
     });
@@ -105,6 +113,8 @@ export function AdminDayResourcesPage() {
       type: res.type,
       url: res.url ?? "",
       content: res.content ?? "",
+      language: res.language ?? "",
+      filename: res.filename ?? "",
       codeInputMode: hasPastedCode ? "paste" : "link",
       publishedAt: res.publishedAt,
     });
@@ -121,6 +131,7 @@ export function AdminDayResourcesPage() {
         ...prev,
         url: uploaded.url,
         title: prev.title || uploaded.filename,
+        filename: prev.type === "CODE" && !prev.filename ? uploaded.filename : prev.filename,
       }));
     } catch (err) {
       setFormError(err instanceof Error ? err.message : "Upload failed");
@@ -144,6 +155,10 @@ export function AdminDayResourcesPage() {
             ? form.content
             : null
           : undefined;
+      const payloadLanguage =
+        form.type === "CODE" ? form.language || null : null;
+      const payloadFilename =
+        form.type === "CODE" ? form.filename || null : null;
 
       if (editingResource) {
         await api.updateResource(editingResource.id, {
@@ -152,6 +167,8 @@ export function AdminDayResourcesPage() {
           type: form.type,
           url: payloadUrl,
           ...(payloadContent !== undefined ? { content: payloadContent } : {}),
+          language: payloadLanguage,
+          filename: payloadFilename,
           publishedAt: form.publishedAt,
         });
       } else {
@@ -165,6 +182,8 @@ export function AdminDayResourcesPage() {
           type: form.type,
           url: payloadUrl,
           content: payloadContent ?? null,
+          language: payloadLanguage,
+          filename: payloadFilename,
           order: nextOrder,
           publishedAt: form.publishedAt,
         });
@@ -449,41 +468,79 @@ export function AdminDayResourcesPage() {
               </div>
 
               {form.type === "CODE" && (
-                <div>
-                  <label className="block text-sm font-medium text-zinc-300">
-                    Code Source
-                  </label>
-                  <div className="mt-1 grid grid-cols-2 gap-2 rounded-lg border border-zinc-800 bg-zinc-950 p-1">
-                    <button
-                      type="button"
-                      onClick={() =>
-                        setForm({ ...form, codeInputMode: "link" })
-                      }
-                      className={`inline-flex items-center justify-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium transition ${
-                        form.codeInputMode === "link"
-                          ? "bg-emerald-800 text-emerald-50"
-                          : "text-zinc-400 hover:text-zinc-200"
-                      }`}
-                    >
-                      <Link2 className="h-3.5 w-3.5" />
-                      URL or File
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() =>
-                        setForm({ ...form, codeInputMode: "paste" })
-                      }
-                      className={`inline-flex items-center justify-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium transition ${
-                        form.codeInputMode === "paste"
-                          ? "bg-emerald-800 text-emerald-50"
-                          : "text-zinc-400 hover:text-zinc-200"
-                      }`}
-                    >
-                      <Code2 className="h-3.5 w-3.5" />
-                      Paste Code
-                    </button>
+                <>
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                    <div>
+                      <label className="block text-sm font-medium text-zinc-300">
+                        Language (optional)
+                      </label>
+                      <select
+                        value={form.language}
+                        onChange={(e) =>
+                          setForm({ ...form, language: e.target.value })
+                        }
+                        className="mt-1 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 focus:border-emerald-600 focus:outline-none"
+                      >
+                        <option value="">Auto-detect</option>
+                        {CODE_LANGUAGES.map((lang) => (
+                          <option key={lang} value={lang}>
+                            {CODE_LANGUAGE_LABELS[lang]}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-zinc-300">
+                        Filename (optional)
+                      </label>
+                      <input
+                        type="text"
+                        value={form.filename}
+                        onChange={(e) =>
+                          setForm({ ...form, filename: e.target.value })
+                        }
+                        placeholder="e.g., server.ts"
+                        className="mt-1 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 font-mono text-sm text-zinc-100 placeholder:text-zinc-500 focus:border-emerald-600 focus:outline-none"
+                      />
+                    </div>
                   </div>
-                </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-zinc-300">
+                      Code Source
+                    </label>
+                    <div className="mt-1 grid grid-cols-2 gap-2 rounded-lg border border-zinc-800 bg-zinc-950 p-1">
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setForm({ ...form, codeInputMode: "link" })
+                        }
+                        className={`inline-flex items-center justify-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium transition ${
+                          form.codeInputMode === "link"
+                            ? "bg-emerald-800 text-emerald-50"
+                            : "text-zinc-400 hover:text-zinc-200"
+                        }`}
+                      >
+                        <Link2 className="h-3.5 w-3.5" />
+                        URL or File
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setForm({ ...form, codeInputMode: "paste" })
+                        }
+                        className={`inline-flex items-center justify-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium transition ${
+                          form.codeInputMode === "paste"
+                            ? "bg-emerald-800 text-emerald-50"
+                            : "text-zinc-400 hover:text-zinc-200"
+                        }`}
+                      >
+                        <Code2 className="h-3.5 w-3.5" />
+                        Paste Code
+                      </button>
+                    </div>
+                  </div>
+                </>
               )}
 
               {form.type === "CODE" && form.codeInputMode === "paste" ? (

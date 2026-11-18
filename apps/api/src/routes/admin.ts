@@ -276,8 +276,17 @@ adminRouter.post("/days/:dayId/resources", async (req, res, next) => {
       return;
     }
 
-    const { title, description, type, url, content, order, publishedAt } =
-      parsed.data;
+    const {
+      title,
+      description,
+      type,
+      url,
+      content,
+      language,
+      filename,
+      order,
+      publishedAt,
+    } = parsed.data;
     const [created] = await db
       .insert(resources)
       .values({
@@ -287,6 +296,8 @@ adminRouter.post("/days/:dayId/resources", async (req, res, next) => {
         type,
         url: url ?? null,
         content: content ?? null,
+        language: language ?? null,
+        filename: filename ?? null,
         order,
         publishedAt: publishedAt ? new Date(publishedAt) : null,
       })
@@ -342,6 +353,10 @@ adminRouter.patch("/resources/:id", async (req, res, next) => {
     if (parsed.data.url !== undefined) updates.url = parsed.data.url ?? null;
     if (parsed.data.content !== undefined)
       updates.content = parsed.data.content ?? null;
+    if (parsed.data.language !== undefined)
+      updates.language = parsed.data.language ?? null;
+    if (parsed.data.filename !== undefined)
+      updates.filename = parsed.data.filename ?? null;
     if (parsed.data.order !== undefined) updates.order = parsed.data.order;
     if (parsed.data.publishedAt !== undefined)
       updates.publishedAt = parsed.data.publishedAt

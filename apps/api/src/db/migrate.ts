@@ -44,6 +44,14 @@ async function migrate() {
   const nullableUrlSql = fs.readFileSync(nullableUrlSqlPath, "utf8");
   await pool.query(nullableUrlSql);
 
+  const resourceLangSqlPath = path.join(
+    drizzleDir,
+    "0003_resource_language_filename.sql"
+  );
+  console.log("Applying 0003_resource_language_filename.sql...");
+  const resourceLangSql = fs.readFileSync(resourceLangSqlPath, "utf8");
+  await pool.query(resourceLangSql);
+
   console.log("Database migration completed successfully.");
 }
 

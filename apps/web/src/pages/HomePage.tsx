@@ -1,11 +1,10 @@
 import { useMemo, useState, type FormEvent } from "react";
+import { Link } from "react-router-dom";
 import {
+  ArrowRight,
   Calendar,
-  Check,
   ChevronDown,
   ChevronUp,
-  Code2,
-  Copy,
   ExternalLink,
   FileText,
   FolderOpen,
@@ -17,6 +16,8 @@ import {
   ShieldAlert,
 } from "lucide-react";
 import {
+  CODE_LANGUAGE_LABELS,
+  inferCodeLanguage,
   RESOURCE_TYPES,
   RESOURCE_TYPE_LABELS,
   type ResourceDTO,
@@ -67,19 +68,6 @@ export function HomePage() {
     {}
   );
   const [refreshingAll, setRefreshingAll] = useState(false);
-  const [copiedCodeId, setCopiedCodeId] = useState<string | null>(null);
-
-  const handleCopyCode = async (resourceId: string, code: string) => {
-    try {
-      await navigator.clipboard.writeText(code);
-      setCopiedCodeId(resourceId);
-      setTimeout(() => {
-        setCopiedCodeId((prev) => (prev === resourceId ? null : prev));
-      }, 2000);
-    } catch {
-      // Ignore clipboard errors in unsupported contexts
-    }
-  };
 
   const fetchMarkdownResource = async (
     resource: ResourceDTO,
@@ -541,18 +529,87 @@ export function HomePage() {
           ) : (
             <div className="space-y-3">
               {filteredResources.map((resource) => {
-                const isCodeSnippet =
-                  resource.type === "CODE" && Boolean(resource.content);
+                if (resource.type === "ASSIGNMENT") {
+                  return (
+                    <Link
+                      key={resource.id}
+                      id={`resource-${resource.id}`}
+                      to={`/exercises/${resource.id}`}
+                      className="group flex scroll-mt-24 items-start justify-between gap-4 rounded-2xl border border-zinc-800 bg-zinc-900/80 p-5 transition hover:border-emerald-700/70 hover:bg-zinc-900"
+                    >
+                      <div className="min-w-0 flex-1">
+                        <div className="flex flex-wrap items-center gap-2.5">
+                          <ResourceBadge type={resource.type} />
+                          <h3 className="text-base font-semibold text-zinc-100 group-hover:text-emerald-300">
+                            {resource.title}
+                          </h3>
+                        </div>
+                        {resource.description && (
+                          <p className="mt-2 text-sm leading-relaxed text-zinc-400">
+                            {resource.description}
+                          </p>
+                        )}
+                      </div>
+                      <span className="mt-0.5 inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-zinc-700 bg-zinc-800/90 px-3 py-1.5 text-xs font-medium text-zinc-200 transition group-hover:border-emerald-700 group-hover:bg-emerald-950/60 group-hover:text-emerald-200">
+                        Open Exercises
+                        <ArrowRight className="h-3.5 w-3.5" />
+                      </span>
+                    </Link>
+                  );
+                }
+
+                if (resource.type === "CODE") {
+                  const resolvedLang = inferCodeLanguage(
+                    resource.filename || resource.url,
+                    resource.language
+                  );
+                  return (
+                    <Link
+                      key={resource.id}
+                      id={`resource-${resource.id}`}
+                      to={`/code/${resource.id}`}
+                      className="group flex scroll-mt-24 items-start justify-between gap-4 rounded-2xl border border-zinc-800 bg-zinc-900/80 p-5 transition hover:border-emerald-700/70 hover:bg-zinc-900"
+                    >
+                      <div className="min-w-0 flex-1">
+                        <div className="flex flex-wrap items-center gap-2.5">
+                          <ResourceBadge type={resource.type} />
+                          {resolvedLang && (
+                            <span className="rounded-md border border-zinc-700 bg-zinc-800/80 px-2 py-0.5 text-[11px] font-medium text-emerald-300">
+                              {CODE_LANGUAGE_LABELS[resolvedLang]}
+                            </span>
+                          )}
+                          {resource.filename && (
+                            <span className="font-mono text-xs text-zinc-400">
+                              {resource.filename}
+                            </span>
+                          )}
+                          <h3 className="text-base font-semibold text-zinc-100 group-hover:text-emerald-300">
+                            {resource.title}
+                          </h3>
+                        </div>
+                        {resource.description && (
+                          <p className="mt-2 text-sm leading-relaxed text-zinc-400">
+                            {resource.description}
+                          </p>
+                        )}
+                      </div>
+                      <span className="mt-0.5 inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-zinc-700 bg-zinc-800/90 px-3 py-1.5 text-xs font-medium text-zinc-200 transition group-hover:border-emerald-700 group-hover:bg-emerald-950/60 group-hover:text-emerald-200">
+                        View Code
+                        <ArrowRight className="h-3.5 w-3.5" />
+                      </span>
+                    </Link>
+                  );
+                }
+
                 const hasMarkdown =
-                  !isCodeSnippet &&
-                  (Boolean(resource.content) || isMarkdownUrl(resource.url));
+                  Boolean(resource.content) || isMarkdownUrl(resource.url);
                 const isExpanded = Boolean(expandedMarkdownIds[resource.id]);
                 const markdownBody =
                   resource.content ?? fetchedMarkdown[resource.id];
                 const isLoadingMd = Boolean(loadingMarkdownIds[resource.id]);
                 const mdError = markdownErrors[resource.id];
 
-                if (!isCodeSnippet && !hasMarkdown) {
+                if (!hasMarkdown) {
                   return (
                     <a
                       key={resource.id}
@@ -595,17 +652,8 @@ export function HomePage() {
                         <div className="flex flex-wrap items-center gap-2.5">
                           <ResourceBadge type={resource.type} />
                           <span className="inline-flex items-center gap-1 rounded-md border border-zinc-700 bg-zinc-800/80 px-2 py-0.5 text-[11px] font-medium text-zinc-300">
-                            {isCodeSnippet ? (
-                              <>
-                                <Code2 className="h-3 w-3 text-emerald-400" />
-                                Code
-                              </>
-                            ) : (
-                              <>
-                                <FileText className="h-3 w-3 text-emerald-400" />
-                                Markdown
-                              </>
-                            )}
+                            <FileText className="h-3 w-3 text-emerald-400" />
+                            Markdown
                           </span>
                           <h3 className="text-base font-semibold text-zinc-100 group-hover:text-emerald-300">
                             {resource.title}
@@ -619,7 +667,7 @@ export function HomePage() {
                       </button>
 
                       <div className="flex shrink-0 items-center gap-2">
-                        {!isCodeSnippet && isExpanded && (
+                        {isExpanded && (
                           <button
                             type="button"
                             onClick={() => void refreshMarkdownResource(resource)}
@@ -646,7 +694,7 @@ export function HomePage() {
                             </>
                           ) : (
                             <>
-                              {isCodeSnippet ? "View Code" : "Read"}
+                              Read
                               <ChevronDown className="h-3.5 w-3.5" />
                             </>
                           )}
@@ -668,35 +716,7 @@ export function HomePage() {
 
                     {isExpanded && (
                       <div className="border-t border-zinc-800/90 bg-zinc-950/40 px-5 py-4">
-                        {isCodeSnippet ? (
-                          <div className="relative">
-                            <button
-                              type="button"
-                              onClick={() =>
-                                void handleCopyCode(
-                                  resource.id,
-                                  resource.content ?? ""
-                                )
-                              }
-                              className="absolute top-3 right-3 inline-flex items-center gap-1.5 rounded-lg border border-zinc-700 bg-zinc-900/90 px-2.5 py-1 text-xs font-medium text-zinc-300 transition hover:border-emerald-700 hover:text-emerald-300"
-                            >
-                              {copiedCodeId === resource.id ? (
-                                <>
-                                  <Check className="h-3.5 w-3.5 text-emerald-400" />
-                                  Copied
-                                </>
-                              ) : (
-                                <>
-                                  <Copy className="h-3.5 w-3.5" />
-                                  Copy
-                                </>
-                              )}
-                            </button>
-                            <pre className="overflow-x-auto rounded-xl border border-zinc-800 bg-zinc-950 p-4 pr-24 font-mono text-xs leading-relaxed text-zinc-200">
-                              <code>{resource.content}</code>
-                            </pre>
-                          </div>
-                        ) : isLoadingMd && !markdownBody ? (
+                        {isLoadingMd && !markdownBody ? (
                           <div className="flex items-center gap-2 py-4 text-xs text-zinc-400">
                             <div className="h-4 w-4 animate-spin rounded-full border-2 border-emerald-500 border-t-transparent" />
                             Loading markdown...

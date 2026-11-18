@@ -8,6 +8,22 @@ import { StudentLayout } from "./layouts/StudentLayout";
 import { AdminLayout } from "./layouts/AdminLayout";
 import { HomePage } from "./pages/HomePage";
 
+const ExercisesPage = lazy(() =>
+  import("./pages/ExercisesPage").then((m) => ({ default: m.ExercisesPage }))
+);
+const ExerciseDetailPage = lazy(() =>
+  import("./pages/ExerciseDetailPage").then((m) => ({
+    default: m.ExerciseDetailPage,
+  }))
+);
+const CodePage = lazy(() =>
+  import("./pages/CodePage").then((m) => ({ default: m.CodePage }))
+);
+const CodeDetailPage = lazy(() =>
+  import("./pages/CodeDetailPage").then((m) => ({
+    default: m.CodeDetailPage,
+  }))
+);
 const ProjectsPage = lazy(() =>
   import("./pages/ProjectsPage").then((m) => ({ default: m.ProjectsPage }))
 );
@@ -55,6 +71,13 @@ export function App() {
                 <Routes>
                   <Route element={<StudentLayout />}>
                     <Route path="/" element={<HomePage />} />
+                    <Route path="/exercises" element={<ExercisesPage />} />
+                    <Route
+                      path="/exercises/:id"
+                      element={<ExerciseDetailPage />}
+                    />
+                    <Route path="/code" element={<CodePage />} />
+                    <Route path="/code/:id" element={<CodeDetailPage />} />
                     <Route path="/projects" element={<ProjectsPage />} />
                     <Route
                       path="/projects/:id"

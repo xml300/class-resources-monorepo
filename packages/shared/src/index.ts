@@ -53,6 +53,110 @@ export const unlockDaySchema = z.object({
   password: z.string().min(1, "Password is required").max(200),
 });
 
+export const CODE_LANGUAGES = [
+  "typescript",
+  "javascript",
+  "tsx",
+  "jsx",
+  "bash",
+  "json",
+  "sql",
+  "dockerfile",
+  "html",
+  "css",
+  "yaml",
+  "markdown",
+  "python",
+  "diff",
+  "plaintext",
+] as const;
+
+export type CodeLanguage = (typeof CODE_LANGUAGES)[number];
+
+export const CODE_LANGUAGE_LABELS: Record<CodeLanguage, string> = {
+  typescript: "TypeScript",
+  javascript: "JavaScript",
+  tsx: "TSX",
+  jsx: "JSX",
+  bash: "Bash / Shell",
+  json: "JSON",
+  sql: "SQL",
+  dockerfile: "Dockerfile",
+  html: "HTML",
+  css: "CSS",
+  yaml: "YAML",
+  markdown: "Markdown",
+  python: "Python",
+  diff: "Diff",
+  plaintext: "Plain Text",
+};
+
+const LANGUAGE_ALIAS_MAP: Record<string, CodeLanguage> = {
+  ts: "typescript",
+  typescript: "typescript",
+  mts: "typescript",
+  cts: "typescript",
+  js: "javascript",
+  javascript: "javascript",
+  mjs: "javascript",
+  cjs: "javascript",
+  tsx: "tsx",
+  jsx: "jsx",
+  sh: "bash",
+  bash: "bash",
+  shell: "bash",
+  zsh: "bash",
+  console: "bash",
+  json: "json",
+  jsonc: "json",
+  sql: "sql",
+  psql: "sql",
+  docker: "dockerfile",
+  dockerfile: "dockerfile",
+  html: "html",
+  htm: "html",
+  css: "css",
+  yml: "yaml",
+  yaml: "yaml",
+  md: "markdown",
+  markdown: "markdown",
+  py: "python",
+  python: "python",
+  diff: "diff",
+  patch: "diff",
+  txt: "plaintext",
+  text: "plaintext",
+  plaintext: "plaintext",
+};
+
+export function normalizeCodeLanguage(
+  raw?: string | null
+): CodeLanguage | null {
+  if (!raw) return null;
+  const cleaned = raw.trim().toLowerCase();
+  if (!cleaned) return null;
+  return LANGUAGE_ALIAS_MAP[cleaned] ?? null;
+}
+
+export function inferCodeLanguage(
+  filenameOrUrl?: string | null,
+  explicitLanguage?: string | null
+): CodeLanguage | null {
+  const normalizedExplicit = normalizeCodeLanguage(explicitLanguage);
+  if (normalizedExplicit) return normalizedExplicit;
+  if (!filenameOrUrl) return null;
+
+  const cleanPath = filenameOrUrl.split("?")[0].split("#")[0];
+  const base = cleanPath.split("/").pop()?.toLowerCase() ?? "";
+  if (base === "dockerfile" || base.startsWith("dockerfile.")) {
+    return "dockerfile";
+  }
+  const dotIdx = base.lastIndexOf(".");
+  if (dotIdx === -1) return null;
+  const ext = base.slice(dotIdx + 1);
+  return LANGUAGE_ALIAS_MAP[ext] ?? null;
+}
+
 const resourceFieldsSchema = z.object({
   title: z.string().trim().min(1, "Title is required").max(200),
   description: z.string().trim().max(1000).nullable().optional(),
@@ -70,6 +174,20 @@ const resourceFieldsSchema = z.object({
     .nullable()
     .optional()
     .transform((val) => (val && val.trim().length > 0 ? val : null)),
+  language: z
+    .string()
+    .trim()
+    .max(50)
+    .nullable()
+    .optional()
+    .transform((val) => (val && val.length > 0 ? val : null)),
+  filename: z
+    .string()
+    .trim()
+    .max(200)
+    .nullable()
+    .optional()
+    .transform((val) => (val && val.length > 0 ? val : null)),
   order: z.coerce.number().int().min(0).optional().default(0),
   publishedAt: z.string().nullable().optional(),
 });
@@ -145,10 +263,22 @@ export interface ResourceDTO {
   type: ResourceType;
   url: string | null;
   content: string | null;
+  language: string | null;
+  filename: string | null;
   order: number;
   publishedAt: string | null;
   createdAt: string;
   updatedAt: string;
+}
+
+export interface ResourceDaySummaryDTO {
+  id: string;
+  dayNumber: number;
+  title: string;
+}
+
+export interface ResourceWithDayDTO extends ResourceDTO {
+  day: ResourceDaySummaryDTO;
 }
 
 export interface DayDTO {

@@ -1,4 +1,74 @@
 import type { ReactNode } from "react";
+import { CodeBlock } from "./CodeBlock";
+
+export function slugifyHeading(text: string): string {
+  return text
+    .toLowerCase()
+    .replace(/`([^`]+)`/g, "$1")
+    .replace(/\*\*([^*]+)\*\*/g, "$1")
+    .replace(/\*([^*]+)\*/g, "$1")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
+
+export interface MarkdownHeadingItem {
+  id: string;
+  text: string;
+  level: number;
+}
+
+export function extractExerciseHeadings(
+  content: string
+): MarkdownHeadingItem[] {
+  const lines = content.replace(/\r\n/g, "\n").split("\n");
+  const allHeadings: MarkdownHeadingItem[] = [];
+  const slugCounts = new Map<string, number>();
+  let inFence = false;
+
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (trimmed.startsWith("```")) {
+      inFence = !inFence;
+      continue;
+    }
+    if (inFence) continue;
+
+    const match = /^(#{2,3})\s+(.+)$/.exec(line);
+    if (!match) continue;
+    const level = match[1].length;
+    const rawText = match[2].trim();
+    const cleanText = rawText
+      .replace(/`([^`]+)`/g, "$1")
+      .replace(/\*\*([^*]+)\*\*/g, "$1")
+      .replace(/\*([^*]+)\*/g, "$1");
+    const baseSlug = slugifyHeading(rawText) || `section-${allHeadings.length + 1}`;
+    const count = slugCounts.get(baseSlug) ?? 0;
+    slugCounts.set(baseSlug, count + 1);
+    const id = count === 0 ? baseSlug : `${baseSlug}-${count + 1}`;
+    allHeadings.push({ id, text: cleanText, level });
+  }
+
+  // Prefer explicit exercise/task/clinic/part headings if present, else return all h2/h3 headings
+  const exerciseSpecific = allHeadings.filter(
+    (h) =>
+      !/^coding exercises$/i.test(h.text) &&
+      (/^(exercise|part|task|challenge|clinic|step|workshop)\b/i.test(h.text) ||
+        h.level === 3)
+  );
+  if (exerciseSpecific.length > 0) return exerciseSpecific;
+
+  return allHeadings.filter((h) => !/^coding exercises$/i.test(h.text));
+}
+
+function dedentCodeLines(codeLines: string[]): string {
+  const nonEmpty = codeLines.filter((l) => l.trim().length > 0);
+  if (nonEmpty.length === 0) return codeLines.join("\n");
+  const minIndent = Math.min(
+    ...nonEmpty.map((l) => (/^(\s*)/.exec(l)?.[1].length ?? 0))
+  );
+  if (minIndent === 0) return codeLines.join("\n");
+  return codeLines.map((l) => l.slice(minIndent)).join("\n");
+}
 
 function renderInline(text: string): ReactNode[] {
   const normalized = text.replace(/\\\$/g, "$");
@@ -84,14 +154,22 @@ function isTableSeparator(line: string): boolean {
 export function MarkdownContent({ content }: { content: string }) {
   const lines = content.replace(/\r\n/g, "\n").split("\n");
   const blocks: ReactNode[] = [];
+  const headingSlugCounts = new Map<string, number>();
   let i = 0;
   let key = 0;
+
+  const nextHeadingId = (rawText: string) => {
+    const base = slugifyHeading(rawText) || `heading-${key}`;
+    const count = headingSlugCounts.get(base) ?? 0;
+    headingSlugCounts.set(base, count + 1);
+    return count === 0 ? base : `${base}-${count + 1}`;
+  };
 
   while (i < lines.length) {
     const line = lines[i];
     const trimmed = line.trim();
 
-    // Fenced code block
+    // Fenced code block (including indented fences inside lists)
     if (trimmed.startsWith("```")) {
       const lang = trimmed.slice(3).trim();
       const codeLines: string[] = [];
@@ -102,17 +180,12 @@ export function MarkdownContent({ content }: { content: string }) {
       }
       i++; // skip closing ```
       blocks.push(
-        <pre
+        <CodeBlock
           key={key++}
-          className="my-3 overflow-x-auto rounded-xl border border-zinc-800 bg-zinc-950 p-4 font-mono text-xs leading-relaxed text-zinc-200"
-        >
-          {lang && (
-            <div className="mb-2 text-[10px] font-semibold tracking-wider text-zinc-500 uppercase">
-              {lang}
-            </div>
-          )}
-          <code>{codeLines.join("\n")}</code>
-        </pre>
+          code={dedentCodeLines(codeLines)}
+          language={lang || null}
+          className="my-3.5"
+        />
       );
       continue;
     }
@@ -204,24 +277,30 @@ export function MarkdownContent({ content }: { content: string }) {
       continue;
     }
     if (line.startsWith("### ")) {
+      const headingText = line.slice(4);
+      const id = nextHeadingId(headingText);
       blocks.push(
         <h3
           key={key++}
-          className="mt-5 mb-2 text-base font-semibold text-zinc-100"
+          id={id}
+          className="mt-5 mb-2 scroll-mt-24 text-base font-semibold text-zinc-100"
         >
-          {renderInline(line.slice(4))}
+          {renderInline(headingText)}
         </h3>
       );
       i++;
       continue;
     }
     if (line.startsWith("## ")) {
+      const headingText = line.slice(3);
+      const id = nextHeadingId(headingText);
       blocks.push(
         <h2
           key={key++}
-          className="mt-6 mb-2.5 border-b border-zinc-800/80 pb-1.5 text-lg font-bold text-zinc-100"
+          id={id}
+          className="mt-6 mb-2.5 scroll-mt-24 border-b border-zinc-800/80 pb-1.5 text-lg font-bold text-zinc-100"
         >
-          {renderInline(line.slice(3))}
+          {renderInline(headingText)}
         </h2>
       );
       i++;
