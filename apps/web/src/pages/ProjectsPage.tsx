@@ -274,7 +274,7 @@ export function ProjectsPage() {
           No mini projects match your current filters.
         </div>
       ) : (
-        <div className="mt-6 grid grid-cols-1 gap-5 md:grid-cols-2">
+        <div className="mt-6 grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
           {filtered.map((project) => {
             const totalMilestones = project.milestones.length;
             const doneMilestones = getCompletedMilestoneCount(project.id);

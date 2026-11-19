@@ -527,7 +527,7 @@ export function HomePage() {
                 : "No materials match your current search or filter."}
             </div>
           ) : (
-            <div className="space-y-3">
+            <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
               {filteredResources.map((resource) => {
                 if (resource.type === "ASSIGNMENT") {
                   return (
@@ -641,7 +641,9 @@ export function HomePage() {
                   <div
                     key={resource.id}
                     id={`resource-${resource.id}`}
-                    className="scroll-mt-24 rounded-2xl border border-zinc-800 bg-zinc-900/80 transition hover:border-emerald-700/70"
+                    className={`scroll-mt-24 rounded-2xl border border-zinc-800 bg-zinc-900/80 transition hover:border-emerald-700/70 ${
+                      isExpanded ? "xl:col-span-2" : ""
+                    }`}
                   >
                     <div className="flex items-start justify-between gap-4 p-5">
                       <button

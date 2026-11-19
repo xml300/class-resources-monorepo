@@ -31,7 +31,7 @@ export function Navbar() {
 
   return (
     <header className="sticky top-0 z-30 border-b border-zinc-800/90 bg-zinc-950/90 backdrop-blur">
-        <div className="mx-auto flex h-16 max-w-6xl items-center justify-between gap-4 px-4 sm:px-6">
+        <div className="flex h-16 w-full items-center justify-between gap-4 px-4 sm:px-6 lg:px-8">
           <Link
             to={!isAdminRoute && activeDay ? `/?day=${activeDay.dayNumber}` : "/"}
             className="flex shrink-0 items-center gap-2.5 font-semibold text-zinc-100 transition hover:text-emerald-400"
