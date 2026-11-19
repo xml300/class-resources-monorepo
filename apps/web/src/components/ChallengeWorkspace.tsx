@@ -18,6 +18,7 @@ import { parseChallengeFromMarkdown } from "../lib/challengeParser";
 import {
   isWebContainerSupported,
   runChallengeInWebContainer,
+  warmWebContainer,
   type ExecutionResult,
   type RunnerStatus,
 } from "../lib/webcontainerRunner";
@@ -92,6 +93,13 @@ export function ChallengeWorkspace({
   const [outputView, setOutputView] = useState<"results" | "console">("results");
 
   const wcSupport = useMemo(() => isWebContainerSupported(), []);
+
+  // Pre-warm WebContainer + hot Node.js worker in the background on mount
+  useEffect(() => {
+    if (wcSupport.supported) {
+      warmWebContainer(setRunnerStatus);
+    }
+  }, [wcSupport.supported]);
 
   // Reset local editor & result state whenever the active challenge changes
   useEffect(() => {
