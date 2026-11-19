@@ -1,7 +1,9 @@
 import { count } from "drizzle-orm";
 import { db, pool } from "./index.js";
 import { days, resources, miniProjects } from "./schema.js";
-import { getDaySeeds, syncSeedMaterials } from "./syncMaterials.js";
+import { DAY_SCHEDULE } from "./daySchedule.js";
+import { env } from "../env.js";
+import { syncFromDrive } from "../services/driveSync.js";
 
 async function seed() {
   const sync =
@@ -10,13 +12,21 @@ async function seed() {
     process.argv.includes("--force") || process.env.FORCE_SEED === "true";
 
   if (sync) {
-    console.log("Syncing updated course materials into the database...");
-    const result = await syncSeedMaterials();
+    console.log("Syncing course materials from Google Drive...");
+    const result = await syncFromDrive({ force });
     console.log(
-      `Sync completed: ${result.daysCreated} day(s) created, ${result.daysUpdated} updated; ` +
+      `Drive sync completed in ${result.durationMs}ms: ` +
+        `${result.scannedFiles} scanned, ${result.downloadedFiles} downloaded, ${result.skippedUnchanged} unchanged; ` +
+        `${result.daysCreated} day(s) created, ${result.daysUpdated} updated; ` +
         `${result.resourcesCreated} resource(s) created, ${result.resourcesUpdated} updated; ` +
         `${result.miniProjectsCreated} mini-project(s) created, ${result.miniProjectsUpdated} updated.`
     );
+    if (result.warnings.length > 0) {
+      console.warn("Warnings:");
+      for (const w of result.warnings) {
+        console.warn(`  - ${w}`);
+      }
+    }
     return;
   }
 
@@ -26,7 +36,7 @@ async function seed() {
 
   if (existingCount > 0 && !force) {
     console.log(
-      `Database already has ${existingCount} day(s). Pass --sync to upsert updates without deleting existing data, or --force to replace all data.`
+      `Database already has ${existingCount} day(s). Pass --sync to sync updates from Google Drive without deleting existing data, or --force to replace all data.`
     );
     return;
   }
@@ -38,71 +48,35 @@ async function seed() {
     await db.delete(days);
   }
 
-  const daySeeds = getDaySeeds();
-  console.log("Seeding Days 1–10 (Mon–Fri, Nov 16–27, 2026 @ 9:00 AM UTC+1)...");
-
-  let totalResources = 0;
-  let totalMiniProjects = 0;
-
-  for (const item of daySeeds) {
-    const [createdDay] = await db
-      .insert(days)
-      .values({
-        dayNumber: item.dayNumber,
-        title: item.title,
-        date: item.date,
-        summary: item.summary,
-        publishedAt: item.publishedAt,
-      })
-      .returning();
-
-    const resourceValues = [
-      {
-        dayId: createdDay.id,
-        title: item.slidesTitle,
-        description: `Google Slides presentation for Day ${item.dayNumber}.`,
-        type: "SLIDES" as const,
-        url: item.slidesUrl,
-        content: null,
-        order: 1,
-        publishedAt: item.publishedAt,
-      },
-      ...(item.extraResources ?? []).map((extra) => ({
-        dayId: createdDay.id,
-        title: extra.title,
-        description: extra.description,
-        type: extra.type,
-        url: extra.url,
-        content: extra.content ?? null,
-        order: extra.order,
-        publishedAt: item.publishedAt,
-      })),
-    ];
-
-    await db.insert(resources).values(resourceValues);
-    totalResources += resourceValues.length;
-
-    if (item.miniProject) {
-      await db.insert(miniProjects).values({
-        dayId: createdDay.id,
-        title: item.miniProject.title,
-        summary: item.miniProject.summary,
-        instructions: item.miniProject.instructions,
-        milestones: item.miniProject.milestones,
-        difficulty: item.miniProject.difficulty,
-        estimatedMinutes: item.miniProject.estimatedMinutes,
-        tags: item.miniProject.tags,
-        dueDate: item.miniProject.dueDate,
-        order: item.miniProject.order,
-        publishedAt: item.publishedAt,
-      });
-      totalMiniProjects += 1;
-    }
+  console.log("Seeding Days 1–10 schedule (Mon–Fri, Nov 16–27, 2026 @ 9:00 AM UTC+1)...");
+  for (const item of DAY_SCHEDULE) {
+    await db.insert(days).values({
+      dayNumber: item.dayNumber,
+      title: item.title,
+      date: item.date,
+      summary: item.summary,
+      publishedAt: item.publishedAt,
+    });
   }
 
-  console.log(
-    `Seed completed successfully: ${daySeeds.length} days, ${totalResources} resources, and ${totalMiniProjects} mini-projects.`
-  );
+  if (env.GOOGLE_DRIVE_API_KEY) {
+    console.log("GOOGLE_DRIVE_API_KEY detected; syncing materials from Google Drive...");
+    const result = await syncFromDrive({ force: true });
+    console.log(
+      `Seed + Drive sync completed in ${result.durationMs}ms: ` +
+        `${DAY_SCHEDULE.length} days, ${result.resourcesCreated} resources, and ${result.miniProjectsCreated} mini-projects.`
+    );
+    if (result.warnings.length > 0) {
+      console.warn("Warnings:");
+      for (const w of result.warnings) {
+        console.warn(`  - ${w}`);
+      }
+    }
+  } else {
+    console.log(
+      `Seeded ${DAY_SCHEDULE.length} days. Set GOOGLE_DRIVE_API_KEY and run "npm run db:sync" (or click Sync Materials in Admin) to import materials from Google Drive.`
+    );
+  }
 }
 
 seed()

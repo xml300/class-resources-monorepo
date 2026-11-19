@@ -52,6 +52,14 @@ async function migrate() {
   const resourceLangSql = fs.readFileSync(resourceLangSqlPath, "utf8");
   await pool.query(resourceLangSql);
 
+  const driveSyncSqlPath = path.join(
+    drizzleDir,
+    "0004_drive_sync_metadata.sql"
+  );
+  console.log("Applying 0004_drive_sync_metadata.sql...");
+  const driveSyncSql = fs.readFileSync(driveSyncSqlPath, "utf8");
+  await pool.query(driveSyncSql);
+
   console.log("Database migration completed successfully.");
 }
 

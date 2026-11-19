@@ -182,15 +182,24 @@ export const api = {
     return res.json();
   },
 
-  syncMaterials: () =>
+  syncMaterials: (options?: { force?: boolean }) =>
     request<{
+      source: "drive";
+      scannedFiles: number;
+      downloadedFiles: number;
+      skippedUnchanged: number;
       daysCreated: number;
       daysUpdated: number;
       resourcesCreated: number;
       resourcesUpdated: number;
       miniProjectsCreated: number;
       miniProjectsUpdated: number;
-    }>("/api/admin/sync-materials", {
-      method: "POST",
-    }),
+      warnings: string[];
+      durationMs: number;
+    }>(
+      `/api/admin/sync-materials${options?.force ? "?force=true" : ""}`,
+      {
+        method: "POST",
+      }
+    ),
 };

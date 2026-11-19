@@ -15,7 +15,7 @@ import { db } from "../db/index.js";
 import { days, resources, miniProjects } from "../db/schema.js";
 import { requireAdmin } from "../middleware/auth.js";
 import { hashDayPassword } from "../lib/dayPassword.js";
-import { syncSeedMaterials } from "../db/syncMaterials.js";
+import { syncFromDrive } from "../services/driveSync.js";
 
 export const adminRouter = Router();
 
@@ -589,12 +589,24 @@ adminRouter.post("/upload", upload.single("file"), (req, res) => {
   });
 });
 
-// Sync bundled course materials into the database without overwriting passwords or publish state
-adminRouter.post("/sync-materials", async (_req, res, next) => {
+// Sync course materials directly from Google Drive without overwriting passwords or publish state
+adminRouter.post("/sync-materials", async (req, res, next) => {
   try {
-    const result = await syncSeedMaterials();
+    const force =
+      req.query.force === "true" ||
+      (typeof req.body === "object" &&
+        req.body !== null &&
+        (req.body as { force?: unknown }).force === true);
+    const result = await syncFromDrive({ force });
     res.json(result);
   } catch (err) {
+    if (
+      err instanceof Error &&
+      err.message.includes("GOOGLE_DRIVE_API_KEY is not configured")
+    ) {
+      res.status(503).json({ error: err.message });
+      return;
+    }
     next(err);
   }
 });

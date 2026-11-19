@@ -51,6 +51,7 @@ export function AdminDashboardPage() {
   const [saving, setSaving] = useState(false);
   const [syncing, setSyncing] = useState(false);
   const [syncMessage, setSyncMessage] = useState<string | null>(null);
+  const [syncWarnings, setSyncWarnings] = useState<string[]>([]);
 
   const loadDays = async () => {
     try {
@@ -162,17 +163,21 @@ export function AdminDashboardPage() {
     }
   };
 
-  const handleSyncMaterials = async () => {
+  const handleSyncMaterials = async (force = false) => {
     setError(null);
     setSyncMessage(null);
+    setSyncWarnings([]);
     setSyncing(true);
     try {
-      const result = await api.syncMaterials();
+      const result = await api.syncMaterials({ force });
       setSyncMessage(
-        `Synced materials: ${result.daysCreated} day(s) created, ${result.daysUpdated} updated; ` +
+        `Synced from Google Drive in ${(result.durationMs / 1000).toFixed(1)}s: ` +
+          `${result.scannedFiles} scanned, ${result.downloadedFiles} downloaded, ${result.skippedUnchanged} unchanged; ` +
+          `${result.daysCreated} day(s) created; ` +
           `${result.resourcesCreated} resource(s) created, ${result.resourcesUpdated} updated; ` +
           `${result.miniProjectsCreated} mini-project(s) created, ${result.miniProjectsUpdated} updated.`
       );
+      setSyncWarnings(result.warnings ?? []);
       await loadDays();
     } catch (err) {
       setError(
@@ -198,14 +203,23 @@ export function AdminDashboardPage() {
         <div className="flex flex-wrap items-center gap-2.5">
           <button
             type="button"
-            onClick={handleSyncMaterials}
+            onClick={() => handleSyncMaterials(false)}
             disabled={syncing}
             className="inline-flex items-center gap-2 rounded-lg border border-zinc-700 bg-zinc-800 px-4 py-2 text-sm font-semibold text-zinc-100 hover:bg-zinc-700 disabled:opacity-50"
           >
             <RefreshCw
               className={`h-4 w-4 ${syncing ? "animate-spin" : ""}`}
             />
-            {syncing ? "Syncing..." : "Sync Materials"}
+            {syncing ? "Syncing..." : "Sync Drive"}
+          </button>
+          <button
+            type="button"
+            onClick={() => handleSyncMaterials(true)}
+            disabled={syncing}
+            title="Re-download all files from Google Drive even if unchanged"
+            className="inline-flex items-center gap-2 rounded-lg border border-zinc-700/80 bg-zinc-900 px-3 py-2 text-sm font-medium text-zinc-300 hover:bg-zinc-800 hover:text-zinc-100 disabled:opacity-50"
+          >
+            Force Re-sync
           </button>
           <button
             type="button"
@@ -221,6 +235,19 @@ export function AdminDashboardPage() {
       {syncMessage && (
         <div className="mb-4 rounded-lg border border-emerald-800/60 bg-emerald-950/50 px-4 py-3 text-sm text-emerald-200">
           {syncMessage}
+        </div>
+      )}
+
+      {syncWarnings.length > 0 && (
+        <div className="mb-4 rounded-lg border border-amber-800/60 bg-amber-950/50 px-4 py-3 text-sm text-amber-200">
+          <p className="font-semibold">
+            Sync warnings ({syncWarnings.length}):
+          </p>
+          <ul className="mt-1.5 list-disc space-y-1 pl-5 text-xs text-amber-200/90">
+            {syncWarnings.map((warning, idx) => (
+              <li key={idx}>{warning}</li>
+            ))}
+          </ul>
         </div>
       )}
 

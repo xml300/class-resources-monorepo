@@ -10,4 +10,7 @@ export const env = {
   ADMIN_PASSWORD: process.env.ADMIN_PASSWORD || "admin123",
   CORS_ORIGIN: process.env.CORS_ORIGIN || "http://localhost:5173",
   NODE_ENV: process.env.NODE_ENV || "development",
+  GOOGLE_DRIVE_API_KEY: process.env.GOOGLE_DRIVE_API_KEY || "",
+  GOOGLE_DRIVE_FOLDER_ID:
+    process.env.GOOGLE_DRIVE_FOLDER_ID || "1SkCEz1qZHb-qFAvo9pJm8_Agc8QXDdFl",
 };

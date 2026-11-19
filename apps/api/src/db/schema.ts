@@ -37,58 +37,76 @@ export const days = pgTable("days", {
     .defaultNow(),
 });
 
-export const resources = pgTable("resources", {
-  id: uuid("id").defaultRandom().primaryKey(),
-  dayId: uuid("day_id")
-    .notNull()
-    .references(() => days.id, { onDelete: "cascade" }),
-  title: text("title").notNull(),
-  description: text("description"),
-  type: resourceTypeEnum("type").notNull().default("OTHER"),
-  url: text("url"),
-  content: text("content"),
-  language: text("language"),
-  filename: text("filename"),
-  order: integer("order").notNull().default(0),
-  publishedAt: timestamp("published_at", { withTimezone: true }),
-  createdAt: timestamp("created_at", { withTimezone: true })
-    .notNull()
-    .defaultNow(),
-  updatedAt: timestamp("updated_at", { withTimezone: true })
-    .notNull()
-    .defaultNow(),
-});
+export const resources = pgTable(
+  "resources",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    dayId: uuid("day_id")
+      .notNull()
+      .references(() => days.id, { onDelete: "cascade" }),
+    title: text("title").notNull(),
+    description: text("description"),
+    type: resourceTypeEnum("type").notNull().default("OTHER"),
+    url: text("url"),
+    content: text("content"),
+    language: text("language"),
+    filename: text("filename"),
+    order: integer("order").notNull().default(0),
+    publishedAt: timestamp("published_at", { withTimezone: true }),
+    driveFileId: text("drive_file_id"),
+    driveModifiedTime: timestamp("drive_modified_time", { withTimezone: true }),
+    driveMd5Checksum: text("drive_md5_checksum"),
+    driveSourcePath: text("drive_source_path"),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [uniqueIndex("resources_drive_file_id_idx").on(table.driveFileId)]
+);
 
-export const miniProjects = pgTable("mini_projects", {
-  id: uuid("id").defaultRandom().primaryKey(),
-  dayId: uuid("day_id").references(() => days.id, { onDelete: "set null" }),
-  title: text("title").notNull(),
-  summary: text("summary"),
-  instructions: text("instructions"),
-  milestones: jsonb("milestones")
-    .$type<MiniProjectMilestone[]>()
-    .notNull()
-    .default([]),
-  starterRepoUrl: text("starter_repo_url"),
-  demoUrl: text("demo_url"),
-  specUrl: text("spec_url"),
-  solutionUrl: text("solution_url"),
-  attachmentUrl: text("attachment_url"),
-  difficulty: projectDifficultyEnum("difficulty")
-    .notNull()
-    .default("INTERMEDIATE"),
-  estimatedMinutes: integer("estimated_minutes"),
-  tags: jsonb("tags").$type<string[]>().notNull().default([]),
-  dueDate: timestamp("due_date", { withTimezone: true }),
-  order: integer("order").notNull().default(0),
-  publishedAt: timestamp("published_at", { withTimezone: true }),
-  createdAt: timestamp("created_at", { withTimezone: true })
-    .notNull()
-    .defaultNow(),
-  updatedAt: timestamp("updated_at", { withTimezone: true })
-    .notNull()
-    .defaultNow(),
-});
+export const miniProjects = pgTable(
+  "mini_projects",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    dayId: uuid("day_id").references(() => days.id, { onDelete: "set null" }),
+    title: text("title").notNull(),
+    summary: text("summary"),
+    instructions: text("instructions"),
+    milestones: jsonb("milestones")
+      .$type<MiniProjectMilestone[]>()
+      .notNull()
+      .default([]),
+    starterRepoUrl: text("starter_repo_url"),
+    demoUrl: text("demo_url"),
+    specUrl: text("spec_url"),
+    solutionUrl: text("solution_url"),
+    attachmentUrl: text("attachment_url"),
+    difficulty: projectDifficultyEnum("difficulty")
+      .notNull()
+      .default("INTERMEDIATE"),
+    estimatedMinutes: integer("estimated_minutes"),
+    tags: jsonb("tags").$type<string[]>().notNull().default([]),
+    dueDate: timestamp("due_date", { withTimezone: true }),
+    order: integer("order").notNull().default(0),
+    publishedAt: timestamp("published_at", { withTimezone: true }),
+    driveFileId: text("drive_file_id"),
+    driveModifiedTime: timestamp("drive_modified_time", { withTimezone: true }),
+    driveMd5Checksum: text("drive_md5_checksum"),
+    driveSourcePath: text("drive_source_path"),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("mini_projects_drive_file_id_idx").on(table.driveFileId),
+  ]
+);
 
 export const dayUnlockAttempts = pgTable(
   "day_unlock_attempts",
