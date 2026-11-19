@@ -9,10 +9,8 @@ import {
   Circle,
   ClipboardList,
   ExternalLink,
-  GalleryHorizontalEnd,
   RefreshCw,
   RotateCcw,
-  ScrollText,
 } from "lucide-react";
 import type { ResourceWithDayDTO } from "@repo/shared";
 import { api } from "../lib/api";
@@ -25,20 +23,7 @@ import {
 } from "../components/MarkdownContent";
 import { StudentSidebar, useStudentSidebar } from "../layouts/StudentLayout";
 
-type ViewMode = "steps" | "full";
 type SlideDirection = "next" | "prev" | "none";
-
-const VIEW_MODE_STORAGE_KEY = "exercise-view-mode";
-
-function getInitialViewMode(): ViewMode {
-  try {
-    const saved = localStorage.getItem(VIEW_MODE_STORAGE_KEY);
-    if (saved === "full" || saved === "steps") return saved;
-  } catch {
-    // ignore storage errors
-  }
-  return "steps";
-}
 
 function isMarkdownUrl(url: string | null): boolean {
   if (!url) return false;
@@ -58,7 +43,6 @@ export function ExerciseDetailPage() {
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [completedIds, setCompletedIds] = useState<string[]>([]);
-  const [viewMode, setViewMode] = useState<ViewMode>(getInitialViewMode);
   const [activeSlideIndex, setActiveSlideIndex] = useState(0);
   const [slideDirection, setSlideDirection] = useState<SlideDirection>("none");
   const sheetRef = useRef<HTMLDivElement | null>(null);
@@ -154,8 +138,6 @@ export function ExerciseDetailPage() {
     ];
   }, [markdownBody, exercise?.title]);
 
-  const canPaginate = sections.length > 0;
-  const isStepMode = canPaginate && viewMode === "steps";
   const hasOverview = sections.length > 0 && sections[0].isOverview;
 
   const stepParam = searchParams.get("step");
@@ -179,16 +161,6 @@ export function ExerciseDetailPage() {
       prev >= 0 && prev < sections.length ? prev : 0
     );
   }, [sections, stepParam, hashTarget]);
-
-  const handleViewModeChange = (nextMode: ViewMode) => {
-    setViewMode(nextMode);
-    setSlideDirection("none");
-    try {
-      localStorage.setItem(VIEW_MODE_STORAGE_KEY, nextMode);
-    } catch {
-      // ignore storage errors
-    }
-  };
 
   const goToSlide = useCallback(
     (nextIndex: number, options?: { scrollToCard?: boolean }) => {
@@ -222,9 +194,9 @@ export function ExerciseDetailPage() {
     [activeSlideIndex, sections, setSearchParams]
   );
 
-  // Keyboard arrow navigation in step-by-step mode
+  // Keyboard arrow navigation between challenges
   useEffect(() => {
-    if (!isStepMode) return;
+    if (sections.length <= 1) return;
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.metaKey || e.ctrlKey || e.altKey || e.shiftKey) return;
       const target = e.target as HTMLElement | null;
@@ -251,7 +223,7 @@ export function ExerciseDetailPage() {
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [isStepMode, activeSlideIndex, sections.length, goToSlide]);
+  }, [activeSlideIndex, sections.length, goToSlide]);
 
   const toggleItem = (itemId: string) => {
     if (!exercise) return;
@@ -407,7 +379,7 @@ export function ExerciseDetailPage() {
             </div>
 
             <ul className="space-y-1.5">
-              {isStepMode && hasOverview && (
+              {hasOverview && (
                 <li>
                   <button
                     type="button"
@@ -430,7 +402,7 @@ export function ExerciseDetailPage() {
               {exerciseItems.map((item, idx) => {
                 const checked = completedIds.includes(item.id);
                 const sectionIdx = idx + (hasOverview ? 1 : 0);
-                const isActive = isStepMode && activeSection?.id === item.id;
+                const isActive = activeSection?.id === item.id;
 
                 return (
                   <li key={item.id}>
@@ -455,36 +427,22 @@ export function ExerciseDetailPage() {
                           <Circle className="h-4 w-4 text-zinc-500 hover:text-zinc-300" />
                         )}
                       </button>
-                      {isStepMode ? (
-                        <button
-                          type="button"
-                          onClick={() => {
-                            goToSlide(sectionIdx);
-                            closeSidebar();
-                          }}
-                          className={`min-w-0 flex-1 text-left text-xs leading-snug font-medium transition hover:text-emerald-300 ${
-                            checked
-                              ? "text-emerald-200 line-through decoration-emerald-700"
-                              : isActive
-                                ? "text-emerald-200"
-                                : "text-zinc-200"
-                          }`}
-                        >
-                          {item.text}
-                        </button>
-                      ) : (
-                        <a
-                          href={`#${item.id}`}
-                          onClick={closeSidebar}
-                          className={`min-w-0 flex-1 text-xs leading-snug font-medium transition hover:text-emerald-300 ${
-                            checked
-                              ? "text-emerald-200 line-through decoration-emerald-700"
+                      <button
+                        type="button"
+                        onClick={() => {
+                          goToSlide(sectionIdx);
+                          closeSidebar();
+                        }}
+                        className={`min-w-0 flex-1 text-left text-xs leading-snug font-medium transition hover:text-emerald-300 ${
+                          checked
+                            ? "text-emerald-200 line-through decoration-emerald-700"
+                            : isActive
+                              ? "text-emerald-200"
                               : "text-zinc-200"
-                          }`}
-                        >
-                          {item.text}
-                        </a>
-                      )}
+                        }`}
+                      >
+                        {item.text}
+                      </button>
                     </div>
                   </li>
                 );
@@ -557,9 +515,9 @@ export function ExerciseDetailPage() {
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-2.5">
             <h2 className="text-xs font-semibold tracking-wider text-zinc-400 uppercase">
-              {isStepMode ? "Challenge Workspace" : "Exercise Sheet"}
+              Challenge Workspace
             </h2>
-            {isStepMode && activeSection && (
+            {activeSection && (
               <span className="inline-flex items-center gap-1.5 rounded-full border border-zinc-700/80 bg-zinc-800/80 px-2.5 py-0.5 text-xs font-medium text-zinc-200">
                 {activeSection.isOverview ? (
                   <>
@@ -579,41 +537,6 @@ export function ExerciseDetailPage() {
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
-            {canPaginate && (
-              <div
-                role="group"
-                aria-label="Exercise view mode"
-                className="inline-flex rounded-lg border border-zinc-800 bg-zinc-950/90 p-0.5"
-              >
-                <button
-                  type="button"
-                  onClick={() => handleViewModeChange("steps")}
-                  aria-pressed={viewMode === "steps"}
-                  className={`inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-medium transition ${
-                    viewMode === "steps"
-                      ? "bg-emerald-800/90 text-emerald-50 shadow-xs"
-                      : "text-zinc-400 hover:text-zinc-200"
-                  }`}
-                >
-                  <GalleryHorizontalEnd className="h-3.5 w-3.5" />
-                  Challenge
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleViewModeChange("full")}
-                  aria-pressed={viewMode === "full"}
-                  className={`inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-medium transition ${
-                    viewMode === "full"
-                      ? "bg-emerald-800/90 text-emerald-50 shadow-xs"
-                      : "text-zinc-400 hover:text-zinc-200"
-                  }`}
-                >
-                  <ScrollText className="h-3.5 w-3.5" />
-                  Full sheet
-                </button>
-              </div>
-            )}
-
             <button
               type="button"
               onClick={() => void handleRefresh()}
@@ -630,8 +553,8 @@ export function ExerciseDetailPage() {
           </div>
         </div>
 
-        {/* Top Stepper Bar (Step-by-step mode) */}
-        {isStepMode && sections.length > 1 && (
+        {/* Top Stepper Bar */}
+        {sections.length > 1 && (
           <div className="mb-5 flex items-center gap-3 rounded-xl border border-zinc-800/90 bg-zinc-950/60 px-3 py-2.5">
             <button
               type="button"
@@ -684,8 +607,7 @@ export function ExerciseDetailPage() {
           </div>
         )}
 
-        {markdownBody ? (
-          isStepMode && activeSection ? (
+        {markdownBody && activeSection ? (
             <div>
               <div
                 key={activeSection.id}
@@ -788,9 +710,6 @@ export function ExerciseDetailPage() {
                 </p>
               </div>
             </div>
-          ) : (
-            <MarkdownContent content={markdownBody} />
-          )
         ) : (
           <p className="text-sm text-zinc-500 italic">
             No inline exercise content available.{" "}
