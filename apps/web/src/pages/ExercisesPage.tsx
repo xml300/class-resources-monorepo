@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import {
-  ArrowRight,
+  ArrowUpRight,
   CheckCircle2,
   ClipboardList,
   ExternalLink,
@@ -226,24 +226,27 @@ export function ExercisesPage() {
             return (
               <div
                 key={exercise.id}
-                className="group flex flex-col justify-between rounded-2xl border border-zinc-800 bg-zinc-900/80 p-6 transition hover:border-emerald-700/60 hover:bg-zinc-900"
+                className="group relative flex flex-col justify-between rounded-2xl border border-zinc-800 bg-zinc-900/80 p-6 transition hover:border-emerald-700/60 hover:bg-zinc-900"
               >
                 <div>
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span className="rounded-md border border-emerald-700/60 bg-emerald-900/80 px-2 py-0.5 text-xs font-semibold text-emerald-100">
-                      Day {exercise.day.dayNumber}
-                    </span>
-                    {totalItems > 0 && (
-                      <span className="rounded-full border border-teal-800/60 bg-teal-950/70 px-2.5 py-0.5 text-xs font-medium text-teal-300">
-                        {totalItems}{" "}
-                        {totalItems === 1 ? "Exercise" : "Exercises"}
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="rounded-md border border-emerald-700/60 bg-emerald-900/80 px-2 py-0.5 text-xs font-semibold text-emerald-100">
+                        Day {exercise.day.dayNumber}
                       </span>
-                    )}
+                      {totalItems > 0 && (
+                        <span className="rounded-full border border-teal-800/60 bg-teal-950/70 px-2.5 py-0.5 text-xs font-medium text-teal-300">
+                          {totalItems}{" "}
+                          {totalItems === 1 ? "Exercise" : "Exercises"}
+                        </span>
+                      )}
+                    </div>
+                    <ArrowUpRight className="mt-0.5 h-4 w-4 shrink-0 text-zinc-500 transition group-hover:translate-x-0.5 group-hover:-translate-y-0.5 group-hover:text-emerald-400" />
                   </div>
 
                   <Link
                     to={`/exercises/${exercise.id}`}
-                    className="mt-3 block text-lg font-bold text-zinc-100 transition group-hover:text-emerald-300"
+                    className="mt-3 block text-lg font-bold text-zinc-100 transition after:absolute after:inset-0 group-hover:text-emerald-300"
                   >
                     {exercise.title}
                   </Link>
@@ -276,35 +279,25 @@ export function ExercisesPage() {
                     </div>
                   )}
 
-                  <div className="flex flex-wrap items-center justify-between gap-2">
-                    <div className="flex items-center gap-2">
-                      <Link
-                        to={`/?day=${exercise.day.dayNumber}`}
-                        className="text-xs font-medium text-zinc-400 transition hover:text-emerald-300"
-                      >
-                        View Day {exercise.day.dayNumber}
-                      </Link>
-                      {exercise.url && (
-                        <a
-                          href={exercise.url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          title="Open source document"
-                          className="inline-flex items-center gap-1 rounded-lg border border-zinc-800 bg-zinc-950 px-2 py-1 text-xs font-medium text-zinc-400 transition hover:border-zinc-700 hover:text-zinc-200"
-                        >
-                          <ExternalLink className="h-3 w-3" />
-                          Source
-                        </a>
-                      )}
-                    </div>
-
+                  <div className="relative z-10 flex flex-wrap items-center justify-between gap-2">
                     <Link
-                      to={`/exercises/${exercise.id}`}
-                      className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-800 px-3 py-1.5 text-xs font-semibold text-emerald-50 transition hover:bg-emerald-700"
+                      to={`/?day=${exercise.day.dayNumber}`}
+                      className="text-xs font-medium text-zinc-400 transition hover:text-emerald-300"
                     >
-                      Open Challenges
-                      <ArrowRight className="h-3.5 w-3.5" />
+                      View Day {exercise.day.dayNumber}
                     </Link>
+                    {exercise.url && (
+                      <a
+                        href={exercise.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        title="Open source document"
+                        className="inline-flex items-center gap-1 rounded-lg border border-zinc-800 bg-zinc-950 px-2 py-1 text-xs font-medium text-zinc-400 transition hover:border-zinc-700 hover:text-zinc-200"
+                      >
+                        <ExternalLink className="h-3 w-3" />
+                        Source
+                      </a>
+                    )}
                   </div>
                 </div>
               </div>

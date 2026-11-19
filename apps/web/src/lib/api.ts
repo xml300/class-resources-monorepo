@@ -110,6 +110,8 @@ export const api = {
   },
   getPublicMiniProject: (id: string) =>
     request<MiniProjectDTO>(`/api/mini-projects/${id}`),
+  getPublicResource: (id: string) =>
+    request<ResourceWithDayDTO>(`/api/resources/${id}`),
 
   // Auth
   getMe: () =>

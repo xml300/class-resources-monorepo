@@ -2,16 +2,14 @@ import { useMemo, useState, type FormEvent } from "react";
 import { Link } from "react-router-dom";
 import {
   ArrowRight,
+  ArrowUpRight,
   Calendar,
-  ChevronDown,
-  ChevronUp,
   ExternalLink,
   FileText,
   FolderOpen,
   KeyRound,
   Layers,
   Lock,
-  RefreshCw,
   Search,
   ShieldAlert,
 } from "lucide-react";
@@ -20,12 +18,10 @@ import {
   inferCodeLanguage,
   RESOURCE_TYPES,
   RESOURCE_TYPE_LABELS,
-  type ResourceDTO,
   type ResourceType,
 } from "@repo/shared";
 import { useDays } from "../context/DaysContext";
 import { ResourceBadge } from "../components/ResourceBadge";
-import { MarkdownContent } from "../components/MarkdownContent";
 import {
   StudentSidebar,
   useStudentSidebar,
@@ -52,175 +48,6 @@ export function HomePage() {
   const [retryAfterSeconds, setRetryAfterSeconds] = useState<number | null>(
     null
   );
-  const [expandedMarkdownIds, setExpandedMarkdownIds] = useState<
-    Record<string, boolean>
-  >({});
-  const [fetchedMarkdown, setFetchedMarkdown] = useState<
-    Record<string, string>
-  >({});
-  const [fetchedMarkdownUrls, setFetchedMarkdownUrls] = useState<
-    Record<string, string>
-  >({});
-  const [loadingMarkdownIds, setLoadingMarkdownIds] = useState<
-    Record<string, boolean>
-  >({});
-  const [markdownErrors, setMarkdownErrors] = useState<Record<string, string>>(
-    {}
-  );
-  const [refreshingAll, setRefreshingAll] = useState(false);
-
-  const fetchMarkdownResource = async (
-    resource: ResourceDTO,
-    force = false
-  ) => {
-    if (
-      resource.content ||
-      !resource.url ||
-      !isMarkdownUrl(resource.url)
-    ) {
-      return;
-    }
-    if (
-      !force &&
-      fetchedMarkdown[resource.id] !== undefined &&
-      fetchedMarkdownUrls[resource.id] === resource.url
-    ) {
-      return;
-    }
-    if (loadingMarkdownIds[resource.id]) {
-      return;
-    }
-
-    setLoadingMarkdownIds((prev) => ({ ...prev, [resource.id]: true }));
-    setMarkdownErrors((prev) => {
-      const next = { ...prev };
-      delete next[resource.id];
-      return next;
-    });
-    try {
-      const res = await fetch(resource.url, { cache: "no-store" });
-      if (!res.ok) {
-        throw new Error(`Failed to load markdown (${res.status})`);
-      }
-      const text = await res.text();
-      const fetchedUrl = resource.url;
-      setFetchedMarkdown((prev) => ({ ...prev, [resource.id]: text }));
-      setFetchedMarkdownUrls((prev) => ({
-        ...prev,
-        [resource.id]: fetchedUrl,
-      }));
-    } catch (err) {
-      setMarkdownErrors((prev) => ({
-        ...prev,
-        [resource.id]:
-          err instanceof Error ? err.message : "Unable to load markdown file",
-      }));
-    } finally {
-      setLoadingMarkdownIds((prev) => ({ ...prev, [resource.id]: false }));
-    }
-  };
-
-  const toggleMarkdownResource = async (resource: ResourceDTO) => {
-    const isExpanded = Boolean(expandedMarkdownIds[resource.id]);
-    setExpandedMarkdownIds((prev) => ({
-      ...prev,
-      [resource.id]: !isExpanded,
-    }));
-
-    if (!isExpanded) {
-      await fetchMarkdownResource(resource);
-    }
-  };
-
-  const refreshMarkdownResource = async (resource: ResourceDTO) => {
-    setLoadingMarkdownIds((prev) => ({ ...prev, [resource.id]: true }));
-    setMarkdownErrors((prev) => {
-      const next = { ...prev };
-      delete next[resource.id];
-      return next;
-    });
-    try {
-      await api.refreshResourceMarkdown(resource.dayId, resource.id);
-      const latestDays = await refreshDays();
-      const latestResource =
-        latestDays
-          ?.flatMap((d) => d.resources)
-          .find((r) => r.id === resource.id) ?? resource;
-
-      if (
-        !latestResource.content &&
-        latestResource.url &&
-        isMarkdownUrl(latestResource.url)
-      ) {
-        const res = await fetch(latestResource.url, { cache: "no-store" });
-        if (!res.ok) {
-          throw new Error(`Failed to load markdown (${res.status})`);
-        }
-        const text = await res.text();
-        const fetchedUrl = latestResource.url;
-        setFetchedMarkdown((prev) => ({
-          ...prev,
-          [latestResource.id]: text,
-        }));
-        setFetchedMarkdownUrls((prev) => ({
-          ...prev,
-          [latestResource.id]: fetchedUrl,
-        }));
-      }
-    } catch (err) {
-      setMarkdownErrors((prev) => ({
-        ...prev,
-        [resource.id]:
-          err instanceof Error ? err.message : "Unable to load markdown file",
-      }));
-    } finally {
-      setLoadingMarkdownIds((prev) => ({ ...prev, [resource.id]: false }));
-    }
-  };
-
-  const handleRefreshDay = async () => {
-    if (refreshingAll) return;
-    setRefreshingAll(true);
-    try {
-      if (activeDay && !activeDay.isLocked) {
-        await api.refreshDayResources(activeDay.id);
-      }
-      const latestDays = await refreshDays();
-      const targetDay =
-        latestDays?.find((d) => d.id === activeDay?.id) ?? activeDay;
-
-      // Clear cached markdown for collapsed resources so they fetch fresh when opened
-      setFetchedMarkdown((prev) => {
-        const next: Record<string, string> = {};
-        for (const [id, val] of Object.entries(prev)) {
-          if (expandedMarkdownIds[id]) next[id] = val;
-        }
-        return next;
-      });
-      setFetchedMarkdownUrls((prev) => {
-        const next: Record<string, string> = {};
-        for (const [id, val] of Object.entries(prev)) {
-          if (expandedMarkdownIds[id]) next[id] = val;
-        }
-        return next;
-      });
-
-      if (targetDay) {
-        const expandedUrlResources = targetDay.resources.filter(
-          (res) =>
-            expandedMarkdownIds[res.id] &&
-            !res.content &&
-            res.url &&
-            isMarkdownUrl(res.url)
-        );
-        await Promise.all(
-          expandedUrlResources.map((res) => fetchMarkdownResource(res, true))
-        );
-      }
-    } finally {
-      setRefreshingAll(false);
-    }
-  };
 
   const handleUnlock = async (e: FormEvent) => {
     e.preventDefault();
@@ -550,10 +377,7 @@ export function HomePage() {
                           </p>
                         )}
                       </div>
-                      <span className="mt-0.5 inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-zinc-700 bg-zinc-800/90 px-3 py-1.5 text-xs font-medium text-zinc-200 transition group-hover:border-emerald-700 group-hover:bg-emerald-950/60 group-hover:text-emerald-200">
-                        Open Exercises
-                        <ArrowRight className="h-3.5 w-3.5" />
-                      </span>
+                      <ArrowUpRight className="mt-1 h-4 w-4 shrink-0 text-zinc-500 transition group-hover:translate-x-0.5 group-hover:-translate-y-0.5 group-hover:text-emerald-400" />
                     </Link>
                   );
                 }
@@ -603,11 +427,6 @@ export function HomePage() {
 
                 const hasMarkdown =
                   Boolean(resource.content) || isMarkdownUrl(resource.url);
-                const isExpanded = Boolean(expandedMarkdownIds[resource.id]);
-                const markdownBody =
-                  resource.content ?? fetchedMarkdown[resource.id];
-                const isLoadingMd = Boolean(loadingMarkdownIds[resource.id]);
-                const mdError = markdownErrors[resource.id];
 
                 if (!hasMarkdown) {
                   return (
@@ -638,116 +457,31 @@ export function HomePage() {
                 }
 
                 return (
-                  <div
+                  <Link
                     key={resource.id}
                     id={`resource-${resource.id}`}
-                    className={`scroll-mt-24 rounded-2xl border border-zinc-800 bg-zinc-900/80 transition hover:border-emerald-700/70 ${
-                      isExpanded ? "xl:col-span-2" : ""
-                    }`}
+                    to={`/resources/${resource.id}`}
+                    className="group flex scroll-mt-24 items-start justify-between gap-4 rounded-2xl border border-zinc-800 bg-zinc-900/80 p-5 transition hover:border-emerald-700/70 hover:bg-zinc-900"
                   >
-                    <div className="flex items-start justify-between gap-4 p-5">
-                      <button
-                        type="button"
-                        onClick={() => void toggleMarkdownResource(resource)}
-                        className="group min-w-0 flex-1 text-left"
-                      >
-                        <div className="flex flex-wrap items-center gap-2.5">
-                          <ResourceBadge type={resource.type} />
-                          <span className="inline-flex items-center gap-1 rounded-md border border-zinc-700 bg-zinc-800/80 px-2 py-0.5 text-[11px] font-medium text-zinc-300">
-                            <FileText className="h-3 w-3 text-emerald-400" />
-                            Markdown
-                          </span>
-                          <h3 className="text-base font-semibold text-zinc-100 group-hover:text-emerald-300">
-                            {resource.title}
-                          </h3>
-                        </div>
-                        {resource.description && (
-                          <p className="mt-2 text-sm leading-relaxed text-zinc-400">
-                            {resource.description}
-                          </p>
-                        )}
-                      </button>
-
-                      <div className="flex shrink-0 items-center gap-2">
-                        {isExpanded && (
-                          <button
-                            type="button"
-                            onClick={() => void refreshMarkdownResource(resource)}
-                            disabled={isLoadingMd}
-                            title="Refresh markdown"
-                            aria-label={`Refresh ${resource.title}`}
-                            className="inline-flex items-center gap-1.5 rounded-lg border border-zinc-700 bg-zinc-800/90 px-2.5 py-1.5 text-xs font-medium text-zinc-200 transition hover:border-emerald-700 hover:bg-emerald-950/60 hover:text-emerald-200 disabled:opacity-50"
-                          >
-                            <RefreshCw
-                              className={`h-3.5 w-3.5 ${isLoadingMd ? "animate-spin" : ""}`}
-                            />
-                            <span className="hidden sm:inline">Refresh</span>
-                          </button>
-                        )}
-                        <button
-                          type="button"
-                          onClick={() => void toggleMarkdownResource(resource)}
-                          className="inline-flex items-center gap-1.5 rounded-lg border border-zinc-700 bg-zinc-800/90 px-3 py-1.5 text-xs font-medium text-zinc-200 transition hover:border-emerald-700 hover:bg-emerald-950/60 hover:text-emerald-200"
-                        >
-                          {isExpanded ? (
-                            <>
-                              Hide
-                              <ChevronUp className="h-3.5 w-3.5" />
-                            </>
-                          ) : (
-                            <>
-                              Read
-                              <ChevronDown className="h-3.5 w-3.5" />
-                            </>
-                          )}
-                        </button>
-                        {resource.url && (
-                          <a
-                            href={resource.url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            title="Open source link"
-                            aria-label={`Open ${resource.title} in new tab`}
-                            className="rounded-lg border border-zinc-800 p-1.5 text-zinc-400 transition hover:border-zinc-700 hover:text-emerald-400"
-                          >
-                            <ExternalLink className="h-4 w-4" />
-                          </a>
-                        )}
+                    <div className="min-w-0 flex-1">
+                      <div className="flex flex-wrap items-center gap-2.5">
+                        <ResourceBadge type={resource.type} />
+                        <span className="inline-flex items-center gap-1 rounded-md border border-zinc-700 bg-zinc-800/80 px-2 py-0.5 text-[11px] font-medium text-zinc-300">
+                          <FileText className="h-3 w-3 text-emerald-400" />
+                          Markdown
+                        </span>
+                        <h3 className="text-base font-semibold text-zinc-100 group-hover:text-emerald-300">
+                          {resource.title}
+                        </h3>
                       </div>
+                      {resource.description && (
+                        <p className="mt-2 text-sm leading-relaxed text-zinc-400">
+                          {resource.description}
+                        </p>
+                      )}
                     </div>
-
-                    {isExpanded && (
-                      <div className="border-t border-zinc-800/90 bg-zinc-950/40 px-5 py-4">
-                        {isLoadingMd && !markdownBody ? (
-                          <div className="flex items-center gap-2 py-4 text-xs text-zinc-400">
-                            <div className="h-4 w-4 animate-spin rounded-full border-2 border-emerald-500 border-t-transparent" />
-                            Loading markdown...
-                          </div>
-                        ) : mdError ? (
-                          <div className="flex items-center justify-between gap-3">
-                            <p className="text-xs text-red-400">{mdError}</p>
-                            <button
-                              type="button"
-                              onClick={() => void refreshMarkdownResource(resource)}
-                              disabled={isLoadingMd}
-                              className="inline-flex items-center gap-1.5 rounded-lg border border-zinc-700 bg-zinc-800/90 px-2.5 py-1 text-xs font-medium text-zinc-200 transition hover:border-emerald-700 hover:text-emerald-200 disabled:opacity-50"
-                            >
-                              <RefreshCw
-                                className={`h-3.5 w-3.5 ${isLoadingMd ? "animate-spin" : ""}`}
-                              />
-                              Retry
-                            </button>
-                          </div>
-                        ) : markdownBody ? (
-                          <MarkdownContent content={markdownBody} />
-                        ) : (
-                          <p className="text-xs text-zinc-500 italic">
-                            No markdown content available.
-                          </p>
-                        )}
-                      </div>
-                    )}
-                  </div>
+                    <ArrowUpRight className="mt-1 h-4 w-4 shrink-0 text-zinc-500 transition group-hover:translate-x-0.5 group-hover:-translate-y-0.5 group-hover:text-emerald-400" />
+                  </Link>
                 );
               })}
             </div>

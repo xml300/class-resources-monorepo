@@ -10,6 +10,7 @@ import { daysRouter } from "./routes/days.js";
 import { exercisesRouter } from "./routes/exercises.js";
 import { codeRouter } from "./routes/code.js";
 import { miniProjectsRouter } from "./routes/miniProjects.js";
+import { resourcesRouter } from "./routes/resources.js";
 import { adminRouter } from "./routes/admin.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -45,6 +46,7 @@ export function createApp() {
   app.use("/api/exercises", exercisesRouter);
   app.use("/api/code", codeRouter);
   app.use("/api/mini-projects", miniProjectsRouter);
+  app.use("/api/resources", resourcesRouter);
   app.use("/api/admin", adminRouter);
 
   // Serve built Vite frontend from backend when available

@@ -32,6 +32,11 @@ const ProjectDetailPage = lazy(() =>
     default: m.ProjectDetailPage,
   }))
 );
+const ResourceDetailPage = lazy(() =>
+  import("./pages/ResourceDetailPage").then((m) => ({
+    default: m.ResourceDetailPage,
+  }))
+);
 const AdminLoginPage = lazy(() =>
   import("./pages/AdminLoginPage").then((m) => ({ default: m.AdminLoginPage }))
 );
@@ -71,6 +76,10 @@ export function App() {
                 <Routes>
                   <Route element={<StudentLayout />}>
                     <Route path="/" element={<HomePage />} />
+                    <Route
+                      path="/resources/:id"
+                      element={<ResourceDetailPage />}
+                    />
                     <Route path="/exercises" element={<ExercisesPage />} />
                     <Route
                       path="/exercises/:id"
