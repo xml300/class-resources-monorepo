@@ -8,3 +8,40 @@ html {
   font-family: var(--font-sans);
   color-scheme: dark;
 }
+
+@keyframes exercise-slide-from-right {
+  from {
+    opacity: 0;
+    transform: translateX(14px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes exercise-slide-from-left {
+  from {
+    opacity: 0;
+    transform: translateX(-14px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.animate-exercise-next {
+  animation: exercise-slide-from-right 180ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.animate-exercise-prev {
+  animation: exercise-slide-from-left 180ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-exercise-next,
+  .animate-exercise-prev {
+    animation: none;
+  }
+}

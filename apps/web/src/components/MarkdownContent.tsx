@@ -17,15 +17,24 @@ export interface MarkdownHeadingItem {
   level: number;
 }
 
-export function extractExerciseHeadings(
-  content: string
-): MarkdownHeadingItem[] {
-  const lines = content.replace(/\r\n/g, "\n").split("\n");
-  const allHeadings: MarkdownHeadingItem[] = [];
+export interface ExerciseSection {
+  id: string;
+  title: string;
+  content: string;
+  isOverview: boolean;
+}
+
+interface IndexedHeading extends MarkdownHeadingItem {
+  lineIndex: number;
+}
+
+function findExerciseHeadingsWithLines(lines: string[]): IndexedHeading[] {
+  const allHeadings: IndexedHeading[] = [];
   const slugCounts = new Map<string, number>();
   let inFence = false;
 
-  for (const line of lines) {
+  for (let lineIndex = 0; lineIndex < lines.length; lineIndex++) {
+    const line = lines[lineIndex];
     const trimmed = line.trim();
     if (trimmed.startsWith("```")) {
       inFence = !inFence;
@@ -41,11 +50,12 @@ export function extractExerciseHeadings(
       .replace(/`([^`]+)`/g, "$1")
       .replace(/\*\*([^*]+)\*\*/g, "$1")
       .replace(/\*([^*]+)\*/g, "$1");
-    const baseSlug = slugifyHeading(rawText) || `section-${allHeadings.length + 1}`;
+    const baseSlug =
+      slugifyHeading(rawText) || `section-${allHeadings.length + 1}`;
     const count = slugCounts.get(baseSlug) ?? 0;
     slugCounts.set(baseSlug, count + 1);
     const id = count === 0 ? baseSlug : `${baseSlug}-${count + 1}`;
-    allHeadings.push({ id, text: cleanText, level });
+    allHeadings.push({ id, text: cleanText, level, lineIndex });
   }
 
   // Prefer explicit exercise/task/clinic/part headings if present, else return all h2/h3 headings
@@ -58,6 +68,87 @@ export function extractExerciseHeadings(
   if (exerciseSpecific.length > 0) return exerciseSpecific;
 
   return allHeadings.filter((h) => !/^coding exercises$/i.test(h.text));
+}
+
+export function extractExerciseHeadings(
+  content: string
+): MarkdownHeadingItem[] {
+  const lines = content.replace(/\r\n/g, "\n").split("\n");
+  return findExerciseHeadingsWithLines(lines).map(({ id, text, level }) => ({
+    id,
+    text,
+    level,
+  }));
+}
+
+function stripTrailingDividers(sectionLines: string[]): string {
+  const trimmed = [...sectionLines];
+  while (
+    trimmed.length > 0 &&
+    (trimmed[trimmed.length - 1].trim() === "" ||
+      /^(-{3,}|\*{3,}|_{3,})$/.test(trimmed[trimmed.length - 1].trim()))
+  ) {
+    trimmed.pop();
+  }
+  while (trimmed.length > 0 && trimmed[0].trim() === "") {
+    trimmed.shift();
+  }
+  return trimmed.join("\n");
+}
+
+function hasMeaningfulPreamble(preamble: string): boolean {
+  const lines = preamble
+    .split("\n")
+    .map((l) => l.trim())
+    .filter((l) => l.length > 0 && !/^(-{3,}|\*{3,}|_{3,})$/.test(l));
+
+  if (lines.length === 0) return false;
+
+  // If the preamble is only top-level title headings (e.g., "# Day 1" or "## Coding Exercises")
+  // with no actual prose, lists, or code, skip creating an empty Overview slide.
+  return lines.some(
+    (line) => !/^#\s+/.test(line) && !/^##\s+coding exercises$/i.test(line)
+  );
+}
+
+export function splitExerciseSections(content: string): ExerciseSection[] {
+  const lines = content.replace(/\r\n/g, "\n").split("\n");
+  const headings = findExerciseHeadingsWithLines(lines);
+
+  if (headings.length === 0) {
+    return [];
+  }
+
+  const sections: ExerciseSection[] = [];
+  const preambleContent = stripTrailingDividers(
+    lines.slice(0, headings[0].lineIndex)
+  );
+
+  if (hasMeaningfulPreamble(preambleContent)) {
+    sections.push({
+      id: "overview",
+      title: "Overview",
+      content: preambleContent,
+      isOverview: true,
+    });
+  }
+
+  for (let idx = 0; idx < headings.length; idx++) {
+    const current = headings[idx];
+    const nextLineIndex =
+      idx + 1 < headings.length ? headings[idx + 1].lineIndex : lines.length;
+    const sectionContent = stripTrailingDividers(
+      lines.slice(current.lineIndex, nextLineIndex)
+    );
+    sections.push({
+      id: current.id,
+      title: current.text,
+      content: sectionContent,
+      isOverview: false,
+    });
+  }
+
+  return sections;
 }
 
 function dedentCodeLines(codeLines: string[]): string {
