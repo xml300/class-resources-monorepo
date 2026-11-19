@@ -26,7 +26,8 @@ export interface ExecutionResult {
 const DEFAULT_TIMEOUT_MS = 15_000;
 const WORKSPACE_DIR = "workspace";
 const RUNS_DIR = `${WORKSPACE_DIR}/.runs`;
-const RPC_PREFIX = "__WC_RPC__";
+const DONE_PREFIX = "__WC_DONE__:";
+const READY_TOKEN = "__WC_READY__";
 
 let bootPromise: Promise<WebContainer> | null = null;
 let installedDepsHash: string | null = null;
@@ -37,21 +38,17 @@ interface HotWorker {
   proc: WebContainerProcess;
   writer: WritableStreamDefaultWriter<string>;
   pending: Map<
-    number,
+    string,
     {
-      resolve: (payload: WorkerResponse) => void;
+      resolve: () => void;
       reject: (err: Error) => void;
-      onChunk?: (chunk: string) => void;
     }
   >;
 }
 
-interface WorkerResponse {
-  id: number;
-  type: "ready" | "chunk" | "result";
-  chunk?: string;
-  exitCode?: number;
-  stdout?: string;
+interface WorkerResultFile {
+  exitCode: number;
+  stdout: string;
   tests?: TestCaseResult[];
   error?: string;
 }
@@ -90,25 +87,164 @@ export function isWebContainerSupported(): {
 }
 
 /**
- * Persistent in-container Node.js runner script.
- * Keeps V8 & ESM warm so each Run / Test / Attempt executes in ~10-50ms
- * instead of paying a ~2-3s Node.js process spawn penalty on every click.
+ * Lightweight, repeatable `node:test`-compatible harness that runs in-process
+ * inside the persistent Node.js worker without hitting Node's single-use root
+ * test runner limitation.
+ */
+const TEST_HARNESS_SCRIPT = `
+let queue = [];
+let suitePrefix = [];
+let beforeHooks = [];
+let afterHooks = [];
+let beforeEachHooks = [];
+let afterEachHooks = [];
+
+export function __resetHarness__() {
+  queue = [];
+  suitePrefix = [];
+  beforeHooks = [];
+  afterHooks = [];
+  beforeEachHooks = [];
+  afterEachHooks = [];
+}
+
+function registerTest(name, optsOrFn, maybeFn) {
+  const fn = typeof optsOrFn === "function" ? optsOrFn : maybeFn;
+  const opts = typeof optsOrFn === "object" && optsOrFn ? optsOrFn : {};
+  if (typeof fn !== "function") return;
+  const fullName = suitePrefix.length > 0 ? [...suitePrefix, name].join(" > ") : String(name);
+  queue.push({ name: fullName, fn, skip: Boolean(opts.skip || opts.todo) });
+}
+
+export function test(name, optsOrFn, maybeFn) {
+  registerTest(name, optsOrFn, maybeFn);
+}
+test.skip = (name) => {
+  queue.push({ name: String(name), fn: () => {}, skip: true });
+};
+test.todo = test.skip;
+
+export const it = test;
+
+export function describe(name, fn) {
+  suitePrefix.push(String(name));
+  try {
+    fn();
+  } finally {
+    suitePrefix.pop();
+  }
+}
+
+export function before(fn) {
+  beforeHooks.push(fn);
+}
+export function after(fn) {
+  afterHooks.push(fn);
+}
+export function beforeEach(fn) {
+  beforeEachHooks.push(fn);
+}
+export function afterEach(fn) {
+  afterEachHooks.push(fn);
+}
+
+export async function __runAll__() {
+  const results = [];
+  for (const hook of beforeHooks) {
+    await hook();
+  }
+  try {
+    for (const item of queue) {
+      if (item.skip) continue;
+      const t0 = performance.now();
+      const subtests = [];
+      const ctx = {
+        name: item.name,
+        async test(subName, subOptsOrFn, subMaybeFn) {
+          const subFn = typeof subOptsOrFn === "function" ? subOptsOrFn : subMaybeFn;
+          if (typeof subFn !== "function") return;
+          const st0 = performance.now();
+          try {
+            await subFn({ name: subName });
+            subtests.push({
+              name: item.name + " > " + subName,
+              passed: true,
+              durationMs: Math.round((performance.now() - st0) * 10) / 10,
+            });
+          } catch (err) {
+            subtests.push({
+              name: item.name + " > " + subName,
+              passed: false,
+              durationMs: Math.round((performance.now() - st0) * 10) / 10,
+              error: err && err.message ? err.message : String(err),
+            });
+          }
+        },
+      };
+
+      try {
+        for (const hook of beforeEachHooks) await hook();
+        await item.fn(ctx);
+        for (const hook of afterEachHooks) await hook();
+        if (subtests.length > 0) {
+          results.push(...subtests);
+        } else {
+          results.push({
+            name: item.name,
+            passed: true,
+            durationMs: Math.round((performance.now() - t0) * 10) / 10,
+          });
+        }
+      } catch (err) {
+        try {
+          for (const hook of afterEachHooks) await hook();
+        } catch {
+          // ignore cleanup errors
+        }
+        if (subtests.length > 0) {
+          results.push(...subtests);
+        }
+        results.push({
+          name: item.name,
+          passed: false,
+          durationMs: Math.round((performance.now() - t0) * 10) / 10,
+          error: err && err.message ? err.message : String(err),
+        });
+      }
+    }
+  } finally {
+    for (const hook of afterHooks) {
+      try {
+        await hook();
+      } catch {
+        // ignore
+      }
+    }
+  }
+  return results;
+}
+
+export default test;
+`;
+
+/**
+ * Persistent in-container Node.js worker daemon.
+ * Uses file-based IPC (__job__.json / __result__.json) with tiny single-line
+ * signals so WebContainer's 80-column PTY can never line-wrap or corrupt JSON.
  */
 const WORKER_SCRIPT = `
-import readline from "node:readline";
+import fs from "node:fs";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
-import { run as runNodeTest } from "node:test";
+import { __resetHarness__, __runAll__ } from "./__test_harness__.mjs";
 
-const RPC_PREFIX = ${JSON.stringify(RPC_PREFIX)};
+const DONE_PREFIX = ${JSON.stringify(DONE_PREFIX)};
+const READY_TOKEN = ${JSON.stringify(READY_TOKEN)};
 const origStdoutWrite = process.stdout.write.bind(process.stdout);
 const origStderrWrite = process.stderr.write.bind(process.stderr);
 const origExit = process.exit.bind(process);
 const baseCwd = process.cwd();
-
-function sendRpc(obj) {
-  origStdoutWrite(RPC_PREFIX + JSON.stringify(obj) + "\\n");
-}
+const seenJobs = new Set();
 
 class ExitSignal extends Error {
   constructor(code) {
@@ -117,17 +253,30 @@ class ExitSignal extends Error {
   }
 }
 
-async function handleJob(job) {
-  const { id, mode, runDir, entryFilename, testFilename, cliArgs } = job;
-  const absRunDir = path.resolve(baseCwd, runDir);
+async function handleRunId(runKey) {
+  const absRunDir = path.resolve(baseCwd, ".runs", runKey);
+  const jobFile = path.join(absRunDir, "__job__.json");
+  const resultFile = path.join(absRunDir, "__result__.json");
+
+  let job;
+  try {
+    job = JSON.parse(fs.readFileSync(jobFile, "utf8"));
+  } catch (err) {
+    fs.writeFileSync(
+      resultFile,
+      JSON.stringify({ exitCode: 1, stdout: "", error: "Failed to read job: " + String(err) }),
+      "utf8"
+    );
+    origStdoutWrite("\\n" + DONE_PREFIX + runKey + "\\n");
+    return;
+  }
+
+  const { mode, entryFilename, testFilename, cliArgs } = job;
   let output = "";
 
   const captureWrite = (chunk, encoding, cb) => {
     const text = typeof chunk === "string" ? chunk : Buffer.from(chunk).toString("utf8");
     output += text;
-    if (mode === "run") {
-      sendRpc({ id, type: "chunk", chunk: text });
-    }
     if (typeof encoding === "function") encoding();
     else if (typeof cb === "function") cb();
     return true;
@@ -136,6 +285,8 @@ async function handleJob(job) {
   process.stdout.write = captureWrite;
   process.stderr.write = captureWrite;
   process.exitCode = 0;
+
+  let resultPayload = { exitCode: 0, stdout: "" };
 
   try {
     process.chdir(absRunDir);
@@ -160,64 +311,30 @@ async function handleJob(job) {
           output += (output ? "\\n" : "") + msg;
         }
       }
-      sendRpc({ id, type: "result", exitCode, stdout: output });
-      return;
-    }
+      resultPayload = { exitCode, stdout: output };
+    } else {
+      const testPath = path.join(absRunDir, testFilename);
+      process.argv = ["node", testPath];
+      __resetHarness__();
 
-    // Test / Attempt mode via programmatic node:test (in-process, isolation: "none")
-    const testPath = path.join(absRunDir, testFilename);
-    process.argv = ["node", testPath];
-    const tests = [];
-    let hasError = false;
-
-    try {
-      const stream = runNodeTest({
-        files: [testPath],
-        isolation: "none",
-      });
-
-      for await (const ev of stream) {
-        if (ev.type === "test:stdout" || ev.type === "test:stderr") {
-          if (ev.data && ev.data.message) {
-            output += ev.data.message;
-          }
-        } else if (ev.type === "test:pass" || ev.type === "test:fail") {
-          const d = ev.data || {};
-          // Skip parent suite containers; keep leaf tests and file-level load failures
-          if (d.details && d.details.type === "suite") continue;
-          const passed = ev.type === "test:pass";
-          if (!passed) hasError = true;
-          const errObj = d.details && d.details.error;
-          const errCause = errObj && errObj.cause ? errObj.cause : errObj;
-          const errMsg = !passed && errCause
-            ? (errCause.message || String(errCause))
-            : undefined;
-          const durationMs =
-            d.details && typeof d.details.duration_ms === "number"
-              ? Math.round(d.details.duration_ms * 10) / 10
-              : undefined;
-          tests.push({
-            name: d.name || ("Test " + (tests.length + 1)),
-            passed,
-            durationMs,
-            error: errMsg,
-          });
-        }
+      let tests = [];
+      let loadError;
+      try {
+        await import(pathToFileURL(testPath).href);
+        tests = await __runAll__();
+      } catch (err) {
+        loadError = err && err.stack ? err.stack : String(err);
+        output += (output ? "\\n" : "") + loadError;
       }
-    } catch (err) {
-      hasError = true;
-      const msg = err && err.stack ? err.stack : String(err);
-      output += (output ? "\\n" : "") + msg;
+
+      const failed = Boolean(loadError) || tests.some((t) => !t.passed);
+      resultPayload = {
+        exitCode: failed ? 1 : 0,
+        stdout: output,
+        tests,
+        error: loadError,
+      };
     }
-
-    // Filter out top-level file wrapper entry if individual tests were recorded
-    const leafTests =
-      tests.length > 1
-        ? tests.filter((t) => t.name !== testPath && !t.name.endsWith("/" + testFilename))
-        : tests;
-
-    const exitCode = hasError || leafTests.some((t) => !t.passed) ? 1 : 0;
-    sendRpc({ id, type: "result", exitCode, stdout: output, tests: leafTests });
   } finally {
     process.stdout.write = origStdoutWrite;
     process.stderr.write = origStderrWrite;
@@ -229,34 +346,51 @@ async function handleJob(job) {
       // ignore
     }
   }
+
+  fs.writeFileSync(resultFile, JSON.stringify(resultPayload), "utf8");
+  origStdoutWrite("\\n" + DONE_PREFIX + runKey + "\\n");
 }
 
-const rl = readline.createInterface({ input: process.stdin, crlfDelay: Infinity });
-sendRpc({ id: 0, type: "ready" });
+let pendingChain = Promise.resolve();
+let stdinBuf = "";
 
-rl.on("line", (line) => {
-  if (!line.trim()) return;
-  let job;
-  try {
-    job = JSON.parse(line);
-  } catch {
-    return;
+process.stdin.setEncoding("utf8");
+process.stdin.on("data", (chunk) => {
+  stdinBuf += chunk;
+  const parts = stdinBuf.split(/[\\r\\n]+/);
+  stdinBuf = parts.pop() ?? "";
+  for (const part of parts) {
+    const token = part.trim();
+    if (!/^r\\d+$/.test(token)) continue;
+    if (seenJobs.has(token)) continue;
+    seenJobs.add(token);
+    pendingChain = pendingChain.then(() =>
+      handleRunId(token).catch((err) => {
+        const resultFile = path.resolve(baseCwd, ".runs", token, "__result__.json");
+        try {
+          fs.writeFileSync(
+            resultFile,
+            JSON.stringify({ exitCode: 1, stdout: "", error: String(err) }),
+            "utf8"
+          );
+        } catch {
+          // ignore
+        }
+        origStdoutWrite("\\n" + DONE_PREFIX + token + "\\n");
+      })
+    );
   }
-  handleJob(job).catch((err) => {
-    sendRpc({
-      id: job.id,
-      type: "result",
-      exitCode: 1,
-      stdout: "",
-      error: err && err.message ? err.message : String(err),
-    });
-  });
 });
+
+origStdoutWrite("\\n" + READY_TOKEN + "\\n");
 `;
 
 async function ensureBaseWorkspace(wc: WebContainer): Promise<void> {
   await wc.fs.mkdir(RUNS_DIR, { recursive: true });
-  await wc.fs.writeFile(`${WORKSPACE_DIR}/__runner__.mjs`, WORKER_SCRIPT);
+  await Promise.all([
+    wc.fs.writeFile(`${WORKSPACE_DIR}/__test_harness__.mjs`, TEST_HARNESS_SCRIPT),
+    wc.fs.writeFile(`${WORKSPACE_DIR}/__runner__.mjs`, WORKER_SCRIPT),
+  ]);
   if (!lastPackageJson) {
     const defaultPkg = JSON.stringify(
       { name: "challenge-workspace", private: true, type: "module" },
@@ -295,14 +429,14 @@ async function getHotWorker(wc: WebContainer): Promise<HotWorker> {
     await ensureBaseWorkspace(wc);
     const proc = await wc.spawn("node", ["__runner__.mjs"], {
       cwd: WORKSPACE_DIR,
+      terminal: { cols: 200, rows: 30 },
     });
     const writer = proc.input.getWriter();
     const pending = new Map<
-      number,
+      string,
       {
-        resolve: (payload: WorkerResponse) => void;
+        resolve: () => void;
         reject: (err: Error) => void;
-        onChunk?: (chunk: string) => void;
       }
     >();
 
@@ -317,31 +451,27 @@ async function getHotWorker(wc: WebContainer): Promise<HotWorker> {
         new WritableStream({
           write(chunk) {
             buffer += chunk;
-            const lines = buffer.split(/\r?\n/);
+            const lines = buffer.split(/[\r\n]+/);
             buffer = lines.pop() ?? "";
-            for (const line of lines) {
-              const cleanLine = stripAnsi(line);
-              const idx = cleanLine.indexOf(RPC_PREFIX);
-              if (idx === -1) continue;
-              try {
-                const msg = JSON.parse(
-                  cleanLine.slice(idx + RPC_PREFIX.length)
-                ) as WorkerResponse & { type: string };
-                if (msg.type === "ready") {
-                  resolveReady?.();
-                  resolveReady = null;
-                  continue;
+            for (const rawLine of lines) {
+              const line = stripAnsi(rawLine).trim();
+              if (!line) continue;
+              if (line.includes(READY_TOKEN)) {
+                resolveReady?.();
+                resolveReady = null;
+                continue;
+              }
+              const doneIdx = line.indexOf(DONE_PREFIX);
+              if (doneIdx !== -1) {
+                const runKey = line
+                  .slice(doneIdx + DONE_PREFIX.length)
+                  .trim()
+                  .split(/\s+/)[0];
+                const entry = pending.get(runKey);
+                if (entry) {
+                  pending.delete(runKey);
+                  entry.resolve();
                 }
-                const entry = pending.get(msg.id);
-                if (!entry) continue;
-                if (msg.type === "chunk" && msg.chunk) {
-                  entry.onChunk?.(stripAnsi(msg.chunk));
-                } else if (msg.type === "result") {
-                  pending.delete(msg.id);
-                  entry.resolve(msg);
-                }
-              } catch {
-                // ignore malformed non-RPC line
               }
             }
           },
@@ -361,7 +491,7 @@ async function getHotWorker(wc: WebContainer): Promise<HotWorker> {
 
     await Promise.race([
       readyPromise,
-      new Promise<void>((resolve) => setTimeout(resolve, 4000)),
+      new Promise<void>((resolve) => setTimeout(resolve, 6000)),
     ]);
 
     return { proc, writer, pending };
@@ -534,6 +664,13 @@ async function writeFileEnsuringDir(
   await wc.fs.writeFile(fullPath, content);
 }
 
+function rewriteNodeTestImports(testSource: string): string {
+  return testSource.replace(
+    /from\s+["']node:test["']/g,
+    'from "../../__test_harness__.mjs"'
+  );
+}
+
 export interface RunChallengeOptions {
   mode: "run" | "sample-test" | "attempt";
   entryFilename: string;
@@ -628,15 +765,23 @@ export async function runChallengeInWebContainer(
 
     // Write this run's files into a fresh isolated directory so ESM never serves stale cache
     const id = ++runCounter;
-    const relRunDir = `.runs/r${id}`;
-    const fullRunDir = `${WORKSPACE_DIR}/${relRunDir}`;
+    const runKey = `r${id}`;
+    const fullRunDir = `${RUNS_DIR}/${runKey}`;
     await wc.fs.mkdir(fullRunDir, { recursive: true });
 
     const isTs = entryFilename.endsWith(".ts") || entryFilename.endsWith(".mts");
     const testFilename = isTs ? "__challenge__.test.ts" : "__challenge__.test.mjs";
 
+    const jobPayload = JSON.stringify({
+      mode,
+      entryFilename,
+      testFilename,
+      cliArgs: mode === "run" ? parseShellArgs(cliArgs) : [],
+    });
+
     const writes: Promise<void>[] = [
       writeFileEnsuringDir(wc, `${fullRunDir}/${entryFilename}`, code),
+      wc.fs.writeFile(`${fullRunDir}/__job__.json`, jobPayload),
     ];
 
     for (const f of files) {
@@ -646,7 +791,11 @@ export async function runChallengeInWebContainer(
 
     if ((mode === "sample-test" || mode === "attempt") && testCode) {
       writes.push(
-        writeFileEnsuringDir(wc, `${fullRunDir}/${testFilename}`, testCode)
+        writeFileEnsuringDir(
+          wc,
+          `${fullRunDir}/${testFilename}`,
+          rewriteNodeTestImports(testCode)
+        )
       );
     }
 
@@ -655,65 +804,43 @@ export async function runChallengeInWebContainer(
     const worker = await getHotWorker(wc);
 
     let timedOut = false;
-    const response = await new Promise<WorkerResponse>((resolve, reject) => {
+    await new Promise<void>((resolve, reject) => {
       const timer = setTimeout(() => {
         timedOut = true;
-        worker.pending.delete(id);
+        worker.pending.delete(runKey);
         resetWorker("Execution timed out");
-        // Re-warm fresh worker in background for next click
         void getHotWorker(wc).catch(() => {});
-        resolve({ id, type: "result", exitCode: 124, stdout: "" });
+        resolve();
       }, timeoutMs);
 
-      worker.pending.set(id, {
-        resolve: (payload) => {
+      worker.pending.set(runKey, {
+        resolve: () => {
           clearTimeout(timer);
-          resolve(payload);
+          resolve();
         },
         reject: (err) => {
           clearTimeout(timer);
           reject(err);
         },
-        onChunk: onOutputChunk,
       });
 
-      const payload = JSON.stringify({
-        id,
-        mode,
-        runDir: relRunDir,
-        entryFilename,
-        testFilename,
-        cliArgs: mode === "run" ? parseShellArgs(cliArgs) : [],
-      });
-
-      void worker.writer.write(payload + "\n").catch((err) => {
+      void worker.writer.write(`${runKey}\n`).catch((err) => {
         clearTimeout(timer);
-        worker.pending.delete(id);
+        worker.pending.delete(runKey);
         reject(err instanceof Error ? err : new Error(String(err)));
       });
     });
 
-    // Clean up previous run directory in the background (non-blocking)
-    if (id > 1) {
-      void wc.fs
-        .rm(`${WORKSPACE_DIR}/.runs/r${id - 1}`, {
-          recursive: true,
-          force: true,
-        })
-        .catch(() => {});
-    }
-
     onStatus?.("ready");
 
     const durationMs = Math.round(performance.now() - startedAt);
-    const cleanOutput = stripAnsi(response.stdout ?? "").trim();
 
     if (timedOut) {
       return {
         mode,
         exitCode: 124,
         passed: false,
-        stdout: cleanOutput,
+        stdout: "",
         tests: [],
         passedCount: 0,
         failedCount: 0,
@@ -723,6 +850,17 @@ export async function runChallengeInWebContainer(
       };
     }
 
+    const rawResult = await wc.fs.readFile(`${fullRunDir}/__result__.json`, "utf-8");
+    const response = JSON.parse(rawResult) as WorkerResultFile;
+
+    // Clean up previous run directory in the background (non-blocking)
+    if (id > 1) {
+      void wc.fs
+        .rm(`${RUNS_DIR}/r${id - 1}`, { recursive: true, force: true })
+        .catch(() => {});
+    }
+
+    const cleanOutput = stripAnsi(response.stdout ?? "").trim();
     const exitCode = response.exitCode ?? 0;
 
     if (mode === "run") {
