@@ -9,12 +9,26 @@ export const exercisesRouter = Router();
 exercisesRouter.get("/", async (req, res, next) => {
   try {
     const now = new Date();
+    const dayIdParam =
+      typeof req.query.dayId === "string" && req.query.dayId.trim()
+        ? req.query.dayId.trim()
+        : null;
+    const dayNumRaw =
+      typeof req.query.day === "string" ? Number(req.query.day) : NaN;
+    const dayNumberParam =
+      Number.isInteger(dayNumRaw) && dayNumRaw > 0 ? dayNumRaw : null;
+
+    const conditions = [
+      eq(resources.type, "ASSIGNMENT"),
+      isNotNull(resources.publishedAt),
+      lte(resources.publishedAt, now),
+    ];
+    if (dayIdParam) {
+      conditions.push(eq(resources.dayId, dayIdParam));
+    }
+
     const rows = await db.query.resources.findMany({
-      where: and(
-        eq(resources.type, "ASSIGNMENT"),
-        isNotNull(resources.publishedAt),
-        lte(resources.publishedAt, now)
-      ),
+      where: and(...conditions),
       orderBy: [asc(resources.order), asc(resources.createdAt)],
       with: {
         day: {
@@ -35,6 +49,7 @@ exercisesRouter.get("/", async (req, res, next) => {
           row.day &&
           row.day.publishedAt &&
           row.day.publishedAt <= now &&
+          (dayNumberParam === null || row.day.dayNumber === dayNumberParam) &&
           isDayUnlockedForRequest(req, {
             id: row.day.id,
             passwordHash: row.day.passwordHash,

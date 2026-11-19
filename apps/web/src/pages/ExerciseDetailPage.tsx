@@ -16,6 +16,8 @@ import {
 } from "lucide-react";
 import type { ResourceWithDayDTO } from "@repo/shared";
 import { api } from "../lib/api";
+import { useDays } from "../context/DaysContext";
+import { ChallengeWorkspace } from "../components/ChallengeWorkspace";
 import {
   extractExerciseHeadings,
   MarkdownContent,
@@ -49,6 +51,7 @@ export function ExerciseDetailPage() {
   const location = useLocation();
   const [searchParams, setSearchParams] = useSearchParams();
   const { closeSidebar } = useStudentSidebar();
+  const { syncActiveDayNumber } = useDays();
   const [exercise, setExercise] = useState<ResourceWithDayDTO | null>(null);
   const [fetchedMarkdown, setFetchedMarkdown] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -73,6 +76,7 @@ export function ExerciseDetailPage() {
         const data = await api.getPublicExercise(id);
         if (!active) return;
         setExercise(data);
+        syncActiveDayNumber(data.day.dayNumber);
 
         try {
           const saved = localStorage.getItem(`exercise-progress:${id}`);
@@ -107,7 +111,7 @@ export function ExerciseDetailPage() {
     return () => {
       active = false;
     };
-  }, [id]);
+  }, [id, syncActiveDayNumber]);
 
   const handleRefresh = async () => {
     if (!exercise || refreshing) return;
@@ -136,12 +140,21 @@ export function ExerciseDetailPage() {
     [markdownBody]
   );
 
-  const sections = useMemo(
-    () => (markdownBody ? splitExerciseSections(markdownBody) : []),
-    [markdownBody]
-  );
+  const sections = useMemo(() => {
+    if (!markdownBody) return [];
+    const split = splitExerciseSections(markdownBody);
+    if (split.length > 0) return split;
+    return [
+      {
+        id: "challenge-main",
+        title: exercise?.title ?? "Coding Challenge",
+        content: markdownBody,
+        isOverview: false,
+      },
+    ];
+  }, [markdownBody, exercise?.title]);
 
-  const canPaginate = sections.length > 1;
+  const canPaginate = sections.length > 0;
   const isStepMode = canPaginate && viewMode === "steps";
   const hasOverview = sections.length > 0 && sections[0].isOverview;
 
@@ -483,11 +496,11 @@ export function ExerciseDetailPage() {
 
       <div className="flex flex-wrap items-center justify-between gap-2">
         <Link
-          to="/exercises"
+          to={`/exercises?day=${exercise.day.dayNumber}`}
           className="inline-flex items-center gap-1.5 text-sm font-medium text-zinc-400 transition hover:text-emerald-400"
         >
           <ArrowLeft className="h-4 w-4" />
-          All Coding Exercises
+          Day {exercise.day.dayNumber} Challenges
         </Link>
         <Link
           to={`/?day=${exercise.day.dayNumber}`}
@@ -502,7 +515,7 @@ export function ExerciseDetailPage() {
         <div className="flex flex-wrap items-center gap-2.5">
           <span className="inline-flex items-center gap-1.5 rounded-full border border-teal-800/60 bg-teal-950/70 px-2.5 py-0.5 text-xs font-medium text-teal-300">
             <ClipboardList className="h-3.5 w-3.5" />
-            Coding Exercises
+            Coding Challenges
           </span>
           <Link
             to={`/?day=${exercise.day.dayNumber}`}
@@ -539,12 +552,12 @@ export function ExerciseDetailPage() {
       {/* Exercise Content */}
       <div
         ref={sheetRef}
-        className="scroll-mt-20 rounded-2xl border border-zinc-800 bg-zinc-900/70 p-6 sm:p-8"
+        className="scroll-mt-20 rounded-2xl border border-zinc-800 bg-zinc-900/70 p-4 sm:p-6"
       >
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-2.5">
             <h2 className="text-xs font-semibold tracking-wider text-zinc-400 uppercase">
-              Exercise Sheet
+              {isStepMode ? "Challenge Workspace" : "Exercise Sheet"}
             </h2>
             {isStepMode && activeSection && (
               <span className="inline-flex items-center gap-1.5 rounded-full border border-zinc-700/80 bg-zinc-800/80 px-2.5 py-0.5 text-xs font-medium text-zinc-200">
@@ -555,7 +568,7 @@ export function ExerciseDetailPage() {
                   </>
                 ) : (
                   <>
-                    Exercise {activeExerciseNumber} of {totalItems}
+                    Challenge {activeExerciseNumber} of {Math.max(1, totalItems)}
                     {isActiveCompleted && (
                       <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400" />
                     )}
@@ -583,7 +596,7 @@ export function ExerciseDetailPage() {
                   }`}
                 >
                   <GalleryHorizontalEnd className="h-3.5 w-3.5" />
-                  Step-by-step
+                  Challenge
                 </button>
                 <button
                   type="button"
@@ -618,8 +631,8 @@ export function ExerciseDetailPage() {
         </div>
 
         {/* Top Stepper Bar (Step-by-step mode) */}
-        {isStepMode && (
-          <div className="mb-6 flex items-center gap-3 rounded-xl border border-zinc-800/90 bg-zinc-950/60 px-3 py-2.5">
+        {isStepMode && sections.length > 1 && (
+          <div className="mb-5 flex items-center gap-3 rounded-xl border border-zinc-800/90 bg-zinc-950/60 px-3 py-2.5">
             <button
               type="button"
               onClick={() => goToSlide(activeSlideIndex - 1)}
@@ -678,7 +691,18 @@ export function ExerciseDetailPage() {
                 key={activeSection.id}
                 className={`min-h-[14rem] ${slideAnimationClass}`}
               >
-                <MarkdownContent content={activeSection.content} />
+                {activeSection.isOverview ? (
+                  <MarkdownContent content={activeSection.content} />
+                ) : (
+                  <ChallengeWorkspace
+                    resourceId={exercise.id}
+                    sectionId={activeSection.id}
+                    title={activeSection.title}
+                    markdown={activeSection.content}
+                    isCompleted={isActiveCompleted}
+                    onPassed={() => markComplete(activeSection.id)}
+                  />
+                )}
               </div>
 
               {/* Bottom Side-to-Side Navigation Footer */}

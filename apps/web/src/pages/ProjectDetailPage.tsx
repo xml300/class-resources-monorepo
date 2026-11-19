@@ -21,6 +21,7 @@ import {
   type ProjectDifficulty,
 } from "@repo/shared";
 import { api } from "../lib/api";
+import { useDays } from "../context/DaysContext";
 import { MarkdownContent } from "../components/MarkdownContent";
 import { StudentSidebar } from "../layouts/StudentLayout";
 
@@ -35,6 +36,7 @@ const DIFFICULTY_STYLES: Record<ProjectDifficulty, string> = {
 
 export function ProjectDetailPage() {
   const { id } = useParams<{ id: string }>();
+  const { syncActiveDayNumber } = useDays();
   const [project, setProject] = useState<MiniProjectDTO | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -63,6 +65,9 @@ export function ProjectDetailPage() {
         const data = await api.getPublicMiniProject(id);
         if (active) {
           setProject(data);
+          if (data.day) {
+            syncActiveDayNumber(data.day.dayNumber);
+          }
           try {
             const saved = localStorage.getItem(`mini-project-progress:${id}`);
             if (saved) {
@@ -86,7 +91,7 @@ export function ProjectDetailPage() {
     return () => {
       active = false;
     };
-  }, [id]);
+  }, [id, syncActiveDayNumber]);
 
   const toggleMilestone = (milestoneId: string) => {
     if (!project) return;
@@ -284,11 +289,13 @@ export function ProjectDetailPage() {
 
       <div>
         <Link
-          to="/projects"
+          to={project.day ? `/projects?day=${project.day.dayNumber}` : "/projects"}
           className="inline-flex items-center gap-1.5 text-sm font-medium text-zinc-400 transition hover:text-emerald-400"
         >
           <ArrowLeft className="h-4 w-4" />
-          All Mini Projects
+          {project.day
+            ? `Day ${project.day.dayNumber} Mini Projects`
+            : "Mini Projects"}
         </Link>
       </div>
 

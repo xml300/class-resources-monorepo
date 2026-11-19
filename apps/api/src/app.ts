@@ -18,6 +18,13 @@ const webDistDir = path.resolve(__dirname, "../../web/dist");
 export function createApp() {
   const app = express();
 
+  app.use((_req, res, next) => {
+    res.setHeader("Cross-Origin-Opener-Policy", "same-origin");
+    res.setHeader("Cross-Origin-Embedder-Policy", "require-corp");
+    res.setHeader("Cross-Origin-Resource-Policy", "same-origin");
+    next();
+  });
+
   app.use(
     cors({
       origin: env.CORS_ORIGIN,

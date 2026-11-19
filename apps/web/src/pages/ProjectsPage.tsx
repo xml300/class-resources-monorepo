@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import {
   ArrowRight,
@@ -21,6 +21,8 @@ import {
   type ProjectDifficulty,
 } from "@repo/shared";
 import { api } from "../lib/api";
+import { useDays } from "../context/DaysContext";
+import { DayLockedCard } from "../components/DayLockedCard";
 import { StudentSidebar, useStudentSidebar } from "../layouts/StudentLayout";
 
 const DIFFICULTY_STYLES: Record<ProjectDifficulty, string> = {
@@ -45,6 +47,7 @@ function getCompletedMilestoneCount(projectId: string): number {
 
 export function ProjectsPage() {
   const { closeSidebar } = useStudentSidebar();
+  const { activeDay, loading: daysLoading, refreshDays } = useDays();
   const [projects, setProjects] = useState<MiniProjectDTO[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -54,27 +57,32 @@ export function ProjectsPage() {
   );
   const [selectedTag, setSelectedTag] = useState<string | "ALL">("ALL");
 
+  const loadProjects = useCallback(async () => {
+    if (!activeDay || activeDay.isLocked) {
+      setProjects([]);
+      setLoading(false);
+      return;
+    }
+    try {
+      setLoading(true);
+      setError(null);
+      setSelectedTag("ALL");
+      setDifficulty("ALL");
+      const data = await api.getPublicMiniProjects({ dayId: activeDay.id });
+      setProjects(data);
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : "Failed to load mini projects"
+      );
+    } finally {
+      setLoading(false);
+    }
+  }, [activeDay]);
+
   useEffect(() => {
-    let active = true;
-    (async () => {
-      try {
-        setLoading(true);
-        const data = await api.getPublicMiniProjects();
-        if (active) setProjects(data);
-      } catch (err) {
-        if (active) {
-          setError(
-            err instanceof Error ? err.message : "Failed to load mini projects"
-          );
-        }
-      } finally {
-        if (active) setLoading(false);
-      }
-    })();
-    return () => {
-      active = false;
-    };
-  }, []);
+    if (daysLoading) return;
+    void loadProjects();
+  }, [daysLoading, loadProjects]);
 
   const allTags = useMemo(() => {
     const set = new Set<string>();
@@ -96,7 +104,7 @@ export function ProjectsPage() {
     });
   }, [projects, search, difficulty, selectedTag]);
 
-  if (loading) {
+  if (daysLoading || loading) {
     return (
       <div className="flex min-h-[50vh] items-center justify-center">
         <div className="h-8 w-8 animate-spin rounded-full border-4 border-emerald-500 border-t-transparent" />
@@ -117,7 +125,9 @@ export function ProjectsPage() {
     <div className="space-y-6">
       <StudentSidebar
         icon={<Rocket className="h-4 w-4 text-emerald-400" />}
-        title="Mini Projects"
+        title={
+          activeDay ? `Day ${activeDay.dayNumber} Projects` : "Mini Projects"
+        }
         badge={
           <span className="rounded-full bg-zinc-800 px-2 py-0.5 text-xs font-medium text-zinc-300">
             {filtered.length}
@@ -126,7 +136,9 @@ export function ProjectsPage() {
       >
         {filtered.length === 0 ? (
           <p className="text-xs text-zinc-500">
-            No matching projects to display.
+            {activeDay?.isLocked
+              ? `Unlock Day ${activeDay.dayNumber} to view mini projects.`
+              : "No mini projects for this day."}
           </p>
         ) : (
           <ul className="space-y-1">
@@ -162,118 +174,138 @@ export function ProjectsPage() {
           <div>
             <div className="inline-flex items-center gap-1.5 rounded-full border border-emerald-700/50 bg-emerald-950/80 px-3 py-1 text-xs font-medium text-emerald-300">
               <Rocket className="h-3.5 w-3.5" />
-              Hands-on Practice
+              {activeDay
+                ? `Day ${activeDay.dayNumber} • Hands-on Practice`
+                : "Hands-on Practice"}
             </div>
             <h1 className="mt-3 text-2xl font-bold tracking-tight text-zinc-100 sm:text-3xl">
-              Mini Projects
+              {activeDay
+                ? `Day ${activeDay.dayNumber} Mini Projects`
+                : "Mini Projects"}
             </h1>
             <p className="mt-1.5 max-w-2xl text-sm leading-relaxed text-zinc-400">
-              Guided builds with starter repositories, live demos, specs, and
-              interactive milestone checklists.
+              {activeDay
+                ? `${activeDay.title} — guided builds with starter repositories, specs, and interactive milestone checklists.`
+                : "Guided builds with starter repositories, live demos, specs, and interactive milestone checklists."}
             </p>
           </div>
-          <div className="flex items-center gap-3 text-sm text-zinc-400">
-            <span className="rounded-xl border border-zinc-800 bg-zinc-950/70 px-3.5 py-2 font-medium text-zinc-200">
-              {projects.length}{" "}
-              {projects.length === 1 ? "Project" : "Projects"} Available
-            </span>
-          </div>
-        </div>
-      </div>
-
-      {/* Filters */}
-      {projects.length > 0 && (
-        <div className="mt-6 space-y-3">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <div className="relative max-w-sm flex-1">
-              <Search className="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-zinc-500" />
-              <input
-                type="text"
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                placeholder="Search projects, stack, or topics..."
-                className="w-full rounded-xl border border-zinc-800 bg-zinc-900 py-2 pr-3 pl-9 text-sm text-zinc-100 placeholder:text-zinc-500 focus:border-emerald-600 focus:outline-none"
-              />
-            </div>
-
-            <div className="flex flex-wrap items-center gap-1.5">
-              <button
-                type="button"
-                onClick={() => setDifficulty("ALL")}
-                className={`rounded-lg px-3 py-1.5 text-xs font-medium transition ${
-                  difficulty === "ALL"
-                    ? "bg-emerald-800 text-emerald-50"
-                    : "border border-zinc-800 bg-zinc-900 text-zinc-400 hover:text-zinc-200"
-                }`}
-              >
-                All Levels
-              </button>
-              {PROJECT_DIFFICULTIES.map((d) => (
-                <button
-                  key={d}
-                  type="button"
-                  onClick={() => setDifficulty(d)}
-                  className={`rounded-lg px-3 py-1.5 text-xs font-medium transition ${
-                    difficulty === d
-                      ? "bg-emerald-800 text-emerald-50"
-                      : "border border-zinc-800 bg-zinc-900 text-zinc-400 hover:text-zinc-200"
-                  }`}
-                >
-                  {PROJECT_DIFFICULTY_LABELS[d]}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {allTags.length > 0 && (
-            <div className="flex flex-wrap items-center gap-1.5">
-              <span className="mr-1 text-xs text-zinc-500">Tags:</span>
-              <button
-                type="button"
-                onClick={() => setSelectedTag("ALL")}
-                className={`rounded-full px-2.5 py-0.5 text-xs transition ${
-                  selectedTag === "ALL"
-                    ? "bg-zinc-700 text-zinc-100"
-                    : "bg-zinc-900 text-zinc-400 hover:text-zinc-200"
-                }`}
-              >
-                All
-              </button>
-              {allTags.map((tag) => (
-                <button
-                  key={tag}
-                  type="button"
-                  onClick={() => setSelectedTag(tag)}
-                  className={`rounded-full px-2.5 py-0.5 text-xs transition ${
-                    selectedTag === tag
-                      ? "bg-emerald-900/80 text-emerald-200 ring-1 ring-emerald-700"
-                      : "bg-zinc-900 text-zinc-400 hover:text-zinc-200"
-                  }`}
-                >
-                  {tag}
-                </button>
-              ))}
+          {!activeDay?.isLocked && (
+            <div className="flex items-center gap-3 text-sm text-zinc-400">
+              <span className="rounded-xl border border-zinc-800 bg-zinc-950/70 px-3.5 py-2 font-medium text-zinc-200">
+                {projects.length}{" "}
+                {projects.length === 1 ? "Project" : "Projects"} Available
+              </span>
             </div>
           )}
         </div>
-      )}
+      </div>
 
-      {/* Grid */}
-      {projects.length === 0 ? (
-        <div className="mt-8 rounded-2xl border border-dashed border-zinc-800 bg-zinc-900/50 p-12 text-center">
-          <FolderGit2 className="mx-auto h-10 w-10 text-zinc-500" />
-          <h2 className="mt-3 text-base font-semibold text-zinc-100">
-            No mini projects published yet
-          </h2>
-          <p className="mt-1 text-sm text-zinc-400">
-            Check back soon for hands-on coding projects and starter repos.
-          </p>
-        </div>
-      ) : filtered.length === 0 ? (
-        <div className="mt-8 rounded-2xl border border-dashed border-zinc-800 bg-zinc-900/50 p-10 text-center text-sm text-zinc-400">
-          No mini projects match your current filters.
-        </div>
+      {/* Locked Day Gate */}
+      {activeDay?.isLocked ? (
+        <DayLockedCard
+          day={activeDay}
+          sectionLabel="mini projects"
+          onUnlocked={async () => {
+            await refreshDays();
+          }}
+        />
       ) : (
+        <>
+          {/* Filters */}
+          {projects.length > 0 && (
+            <div className="mt-6 space-y-3">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div className="relative max-w-sm flex-1">
+                  <Search className="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-zinc-500" />
+                  <input
+                    type="text"
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                    placeholder="Search projects, stack, or topics..."
+                    className="w-full rounded-xl border border-zinc-800 bg-zinc-900 py-2 pr-3 pl-9 text-sm text-zinc-100 placeholder:text-zinc-500 focus:border-emerald-600 focus:outline-none"
+                  />
+                </div>
+
+                <div className="flex flex-wrap items-center gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => setDifficulty("ALL")}
+                    className={`rounded-lg px-3 py-1.5 text-xs font-medium transition ${
+                      difficulty === "ALL"
+                        ? "bg-emerald-800 text-emerald-50"
+                        : "border border-zinc-800 bg-zinc-900 text-zinc-400 hover:text-zinc-200"
+                    }`}
+                  >
+                    All Levels
+                  </button>
+                  {PROJECT_DIFFICULTIES.map((d) => (
+                    <button
+                      key={d}
+                      type="button"
+                      onClick={() => setDifficulty(d)}
+                      className={`rounded-lg px-3 py-1.5 text-xs font-medium transition ${
+                        difficulty === d
+                          ? "bg-emerald-800 text-emerald-50"
+                          : "border border-zinc-800 bg-zinc-900 text-zinc-400 hover:text-zinc-200"
+                      }`}
+                    >
+                      {PROJECT_DIFFICULTY_LABELS[d]}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {allTags.length > 0 && (
+                <div className="flex flex-wrap items-center gap-1.5">
+                  <span className="mr-1 text-xs text-zinc-500">Tags:</span>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedTag("ALL")}
+                    className={`rounded-full px-2.5 py-0.5 text-xs transition ${
+                      selectedTag === "ALL"
+                        ? "bg-zinc-700 text-zinc-100"
+                        : "bg-zinc-900 text-zinc-400 hover:text-zinc-200"
+                    }`}
+                  >
+                    All
+                  </button>
+                  {allTags.map((tag) => (
+                    <button
+                      key={tag}
+                      type="button"
+                      onClick={() => setSelectedTag(tag)}
+                      className={`rounded-full px-2.5 py-0.5 text-xs transition ${
+                        selectedTag === tag
+                          ? "bg-emerald-900/80 text-emerald-200 ring-1 ring-emerald-700"
+                          : "bg-zinc-900 text-zinc-400 hover:text-zinc-200"
+                      }`}
+                    >
+                      {tag}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Grid */}
+          {projects.length === 0 ? (
+            <div className="mt-8 rounded-2xl border border-dashed border-zinc-800 bg-zinc-900/50 p-12 text-center">
+              <FolderGit2 className="mx-auto h-10 w-10 text-zinc-500" />
+              <h2 className="mt-3 text-base font-semibold text-zinc-100">
+                {activeDay
+                  ? `No mini projects for Day ${activeDay.dayNumber} yet`
+                  : "No mini projects published yet"}
+              </h2>
+              <p className="mt-1 text-sm text-zinc-400">
+                Switch days in the top navigation bar or check back soon.
+              </p>
+            </div>
+          ) : filtered.length === 0 ? (
+            <div className="mt-8 rounded-2xl border border-dashed border-zinc-800 bg-zinc-900/50 p-10 text-center text-sm text-zinc-400">
+              No mini projects match your current filters.
+            </div>
+          ) : (
         <div className="mt-6 grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
           {filtered.map((project) => {
             const totalMilestones = project.milestones.length;
@@ -445,6 +477,8 @@ export function ProjectsPage() {
             );
           })}
         </div>
+          )}
+        </>
       )}
     </div>
   );

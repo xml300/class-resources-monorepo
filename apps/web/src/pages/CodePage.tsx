@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import {
   ArrowRight,
@@ -14,40 +14,44 @@ import {
   type ResourceWithDayDTO,
 } from "@repo/shared";
 import { api } from "../lib/api";
+import { useDays } from "../context/DaysContext";
+import { DayLockedCard } from "../components/DayLockedCard";
 import { StudentSidebar, useStudentSidebar } from "../layouts/StudentLayout";
 
 export function CodePage() {
   const { closeSidebar } = useStudentSidebar();
+  const { activeDay, loading: daysLoading, refreshDays } = useDays();
   const [items, setItems] = useState<ResourceWithDayDTO[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
-  const [selectedDay, setSelectedDay] = useState<number | "ALL">("ALL");
   const [selectedLang, setSelectedLang] = useState<CodeLanguage | "ALL">("ALL");
 
+  const loadCode = useCallback(async () => {
+    if (!activeDay || activeDay.isLocked) {
+      setItems([]);
+      setLoading(false);
+      return;
+    }
+    try {
+      setLoading(true);
+      setError(null);
+      setSelectedLang("ALL");
+      const data = await api.getPublicCodeResources({ dayId: activeDay.id });
+      setItems(data);
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : "Failed to load code resources"
+      );
+    } finally {
+      setLoading(false);
+    }
+  }, [activeDay]);
+
   useEffect(() => {
-    let active = true;
-    (async () => {
-      try {
-        setLoading(true);
-        const data = await api.getPublicCodeResources();
-        if (active) setItems(data);
-      } catch (err) {
-        if (active) {
-          setError(
-            err instanceof Error
-              ? err.message
-              : "Failed to load code resources"
-          );
-        }
-      } finally {
-        if (active) setLoading(false);
-      }
-    })();
-    return () => {
-      active = false;
-    };
-  }, []);
+    if (daysLoading) return;
+    void loadCode();
+  }, [daysLoading, loadCode]);
 
   const enriched = useMemo(
     () =>
@@ -61,12 +65,6 @@ export function CodePage() {
     [items]
   );
 
-  const availableDays = useMemo(() => {
-    const set = new Set<number>();
-    for (const item of enriched) set.add(item.day.dayNumber);
-    return Array.from(set).sort((a, b) => a - b);
-  }, [enriched]);
-
   const availableLanguages = useMemo(() => {
     const set = new Set<CodeLanguage>();
     for (const item of enriched) {
@@ -78,8 +76,6 @@ export function CodePage() {
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
     return enriched.filter((item) => {
-      const dayOk =
-        selectedDay === "ALL" || item.day.dayNumber === selectedDay;
       const langOk =
         selectedLang === "ALL" || item.resolvedLanguage === selectedLang;
       const textOk =
@@ -89,11 +85,11 @@ export function CodePage() {
         (item.filename ?? "").toLowerCase().includes(q) ||
         (item.resolvedLanguage ?? "").toLowerCase().includes(q) ||
         item.day.title.toLowerCase().includes(q);
-      return dayOk && langOk && textOk;
+      return langOk && textOk;
     });
-  }, [enriched, search, selectedDay, selectedLang]);
+  }, [enriched, search, selectedLang]);
 
-  if (loading) {
+  if (daysLoading || loading) {
     return (
       <div className="flex min-h-[50vh] items-center justify-center">
         <div className="h-8 w-8 animate-spin rounded-full border-4 border-emerald-500 border-t-transparent" />
@@ -114,7 +110,9 @@ export function CodePage() {
     <div className="space-y-6">
       <StudentSidebar
         icon={<Code2 className="h-4 w-4 text-emerald-400" />}
-        title="Code Snippets"
+        title={
+          activeDay ? `Day ${activeDay.dayNumber} Code` : "Code Snippets"
+        }
         badge={
           <span className="rounded-full bg-zinc-800 px-2 py-0.5 text-xs font-medium text-zinc-300">
             {filtered.length}
@@ -123,7 +121,9 @@ export function CodePage() {
       >
         {filtered.length === 0 ? (
           <p className="text-xs text-zinc-500">
-            No matching code snippets to display.
+            {activeDay?.isLocked
+              ? `Unlock Day ${activeDay.dayNumber} to view code snippets.`
+              : "No code snippets for this day."}
           </p>
         ) : (
           <ul className="space-y-1">
@@ -161,120 +161,108 @@ export function CodePage() {
           <div>
             <div className="inline-flex items-center gap-1.5 rounded-full border border-emerald-700/50 bg-emerald-950/80 px-3 py-1 text-xs font-medium text-emerald-300">
               <Code2 className="h-3.5 w-3.5" />
-              Syntax-Highlighted Library
+              {activeDay
+                ? `Day ${activeDay.dayNumber} • Syntax-Highlighted Library`
+                : "Syntax-Highlighted Library"}
             </div>
             <h1 className="mt-3 text-2xl font-bold tracking-tight text-zinc-100 sm:text-3xl">
-              Code Snippets & Examples
+              {activeDay
+                ? `Day ${activeDay.dayNumber} Code & Examples`
+                : "Code Snippets & Examples"}
             </h1>
             <p className="mt-1.5 max-w-2xl text-sm leading-relaxed text-zinc-400">
-              Full-page code examples with syntax highlighting, line numbers,
-              one-click copy, and file downloads.
+              {activeDay
+                ? `${activeDay.title} — full-page code examples with syntax highlighting, one-click copy, and downloads.`
+                : "Full-page code examples with syntax highlighting, line numbers, one-click copy, and file downloads."}
             </p>
           </div>
-          <div className="flex items-center gap-3 text-sm text-zinc-400">
-            <span className="rounded-xl border border-zinc-800 bg-zinc-950/70 px-3.5 py-2 font-medium text-zinc-200">
-              {items.length} {items.length === 1 ? "Snippet" : "Snippets"}{" "}
-              Available
-            </span>
-          </div>
-        </div>
-      </div>
-
-      {/* Filters */}
-      {items.length > 0 && (
-        <div className="space-y-3">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <div className="relative max-w-sm flex-1">
-              <Search className="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-zinc-500" />
-              <input
-                type="text"
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                placeholder="Search code snippets, filenames, or languages..."
-                className="w-full rounded-xl border border-zinc-800 bg-zinc-900 py-2 pr-3 pl-9 text-sm text-zinc-100 placeholder:text-zinc-500 focus:border-emerald-600 focus:outline-none"
-              />
-            </div>
-
-            {availableDays.length > 1 && (
-              <div className="flex flex-wrap items-center gap-1.5">
-                <button
-                  type="button"
-                  onClick={() => setSelectedDay("ALL")}
-                  className={`rounded-lg px-2.5 py-1 text-xs font-medium transition ${
-                    selectedDay === "ALL"
-                      ? "bg-emerald-800 text-emerald-50"
-                      : "border border-zinc-800 bg-zinc-900 text-zinc-400 hover:text-zinc-200"
-                  }`}
-                >
-                  All Days
-                </button>
-                {availableDays.map((dayNum) => (
-                  <button
-                    key={dayNum}
-                    type="button"
-                    onClick={() => setSelectedDay(dayNum)}
-                    className={`rounded-lg px-2.5 py-1 text-xs font-medium transition ${
-                      selectedDay === dayNum
-                        ? "bg-emerald-800 text-emerald-50"
-                        : "border border-zinc-800 bg-zinc-900 text-zinc-400 hover:text-zinc-200"
-                    }`}
-                  >
-                    Day {dayNum}
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-
-          {availableLanguages.length > 0 && (
-            <div className="flex flex-wrap items-center gap-1.5">
-              <span className="mr-1 text-xs text-zinc-500">Language:</span>
-              <button
-                type="button"
-                onClick={() => setSelectedLang("ALL")}
-                className={`rounded-full px-2.5 py-0.5 text-xs transition ${
-                  selectedLang === "ALL"
-                    ? "bg-zinc-700 text-zinc-100"
-                    : "bg-zinc-900 text-zinc-400 hover:text-zinc-200"
-                }`}
-              >
-                All
-              </button>
-              {availableLanguages.map((lang) => (
-                <button
-                  key={lang}
-                  type="button"
-                  onClick={() => setSelectedLang(lang)}
-                  className={`rounded-full px-2.5 py-0.5 text-xs transition ${
-                    selectedLang === lang
-                      ? "bg-emerald-900/80 text-emerald-200 ring-1 ring-emerald-700"
-                      : "bg-zinc-900 text-zinc-400 hover:text-zinc-200"
-                  }`}
-                >
-                  {CODE_LANGUAGE_LABELS[lang]}
-                </button>
-              ))}
+          {!activeDay?.isLocked && (
+            <div className="flex items-center gap-3 text-sm text-zinc-400">
+              <span className="rounded-xl border border-zinc-800 bg-zinc-950/70 px-3.5 py-2 font-medium text-zinc-200">
+                {items.length} {items.length === 1 ? "Snippet" : "Snippets"}{" "}
+                Available
+              </span>
             </div>
           )}
         </div>
-      )}
+      </div>
 
-      {/* Grid */}
-      {items.length === 0 ? (
-        <div className="rounded-2xl border border-dashed border-zinc-800 bg-zinc-900/50 p-12 text-center">
-          <FileCode2 className="mx-auto h-10 w-10 text-zinc-500" />
-          <h2 className="mt-3 text-base font-semibold text-zinc-100">
-            No code snippets published yet
-          </h2>
-          <p className="mt-1 text-sm text-zinc-400">
-            Code examples added to class days will appear here automatically.
-          </p>
-        </div>
-      ) : filtered.length === 0 ? (
-        <div className="rounded-2xl border border-dashed border-zinc-800 bg-zinc-900/50 p-10 text-center text-sm text-zinc-400">
-          No code snippets match your current filters.
-        </div>
+      {/* Locked Day Gate */}
+      {activeDay?.isLocked ? (
+        <DayLockedCard
+          day={activeDay}
+          sectionLabel="code snippets"
+          onUnlocked={async () => {
+            await refreshDays();
+          }}
+        />
       ) : (
+        <>
+          {/* Filters */}
+          {items.length > 0 && (
+            <div className="space-y-3">
+              <div className="relative max-w-sm">
+                <Search className="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-zinc-500" />
+                <input
+                  type="text"
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  placeholder="Search code snippets, filenames, or languages..."
+                  className="w-full rounded-xl border border-zinc-800 bg-zinc-900 py-2 pr-3 pl-9 text-sm text-zinc-100 placeholder:text-zinc-500 focus:border-emerald-600 focus:outline-none"
+                />
+              </div>
+
+              {availableLanguages.length > 0 && (
+                <div className="flex flex-wrap items-center gap-1.5">
+                  <span className="mr-1 text-xs text-zinc-500">Language:</span>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedLang("ALL")}
+                    className={`rounded-full px-2.5 py-0.5 text-xs transition ${
+                      selectedLang === "ALL"
+                        ? "bg-zinc-700 text-zinc-100"
+                        : "bg-zinc-900 text-zinc-400 hover:text-zinc-200"
+                    }`}
+                  >
+                    All
+                  </button>
+                  {availableLanguages.map((lang) => (
+                    <button
+                      key={lang}
+                      type="button"
+                      onClick={() => setSelectedLang(lang)}
+                      className={`rounded-full px-2.5 py-0.5 text-xs transition ${
+                        selectedLang === lang
+                          ? "bg-emerald-900/80 text-emerald-200 ring-1 ring-emerald-700"
+                          : "bg-zinc-900 text-zinc-400 hover:text-zinc-200"
+                      }`}
+                    >
+                      {CODE_LANGUAGE_LABELS[lang]}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Grid */}
+          {items.length === 0 ? (
+            <div className="rounded-2xl border border-dashed border-zinc-800 bg-zinc-900/50 p-12 text-center">
+              <FileCode2 className="mx-auto h-10 w-10 text-zinc-500" />
+              <h2 className="mt-3 text-base font-semibold text-zinc-100">
+                {activeDay
+                  ? `No code snippets for Day ${activeDay.dayNumber} yet`
+                  : "No code snippets published yet"}
+              </h2>
+              <p className="mt-1 text-sm text-zinc-400">
+                Switch days in the top navigation bar or check back soon.
+              </p>
+            </div>
+          ) : filtered.length === 0 ? (
+            <div className="rounded-2xl border border-dashed border-zinc-800 bg-zinc-900/50 p-10 text-center text-sm text-zinc-400">
+              No code snippets match your current filters.
+            </div>
+          ) : (
         <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
           {filtered.map((item) => {
             const lineCount = item.content
@@ -356,6 +344,8 @@ export function CodePage() {
             );
           })}
         </div>
+          )}
+        </>
       )}
     </div>
   );

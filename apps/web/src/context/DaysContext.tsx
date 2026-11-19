@@ -10,10 +10,42 @@ import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import type { DayWithResourcesDTO } from "@repo/shared";
 import { api } from "../lib/api";
 
+const ACTIVE_DAY_STORAGE_KEY = "class-resources:active-day";
+
+function readStoredDayNumber(): number | null {
+  try {
+    const raw = localStorage.getItem(ACTIVE_DAY_STORAGE_KEY);
+    if (!raw) return null;
+    const num = Number(raw);
+    return Number.isInteger(num) && num > 0 ? num : null;
+  } catch {
+    return null;
+  }
+}
+
+function writeStoredDayNumber(dayNumber: number): void {
+  try {
+    localStorage.setItem(ACTIVE_DAY_STORAGE_KEY, String(dayNumber));
+  } catch {
+    // ignore storage errors
+  }
+}
+
+function resolveSectionListPath(pathname: string): string | null {
+  if (pathname === "/" || pathname === "/exercises" || pathname === "/code" || pathname === "/projects") {
+    return pathname;
+  }
+  if (pathname.startsWith("/exercises/")) return "/exercises";
+  if (pathname.startsWith("/code/")) return "/code";
+  if (pathname.startsWith("/projects/")) return "/projects";
+  return null;
+}
+
 interface DaysContextValue {
   days: DayWithResourcesDTO[];
   activeDay: DayWithResourcesDTO | null;
   setActiveDayNumber: (dayNumber: number) => void;
+  syncActiveDayNumber: (dayNumber: number) => void;
   refreshDays: () => Promise<DayWithResourcesDTO[] | undefined>;
   loading: boolean;
   error: string | null;
@@ -31,15 +63,16 @@ export function DaysProvider({ children }: { children: ReactNode }) {
 
   const dayParamRaw = searchParams.get("day");
   const dayParam = dayParamRaw ? Number(dayParamRaw) : NaN;
-  const hasValidDayParam = Number.isFinite(dayParam) && dayParam > 0;
+  const hasValidDayParam = Number.isInteger(dayParam) && dayParam > 0;
 
   const [selectedDayNumber, setSelectedDayNumber] = useState<number | null>(
-    () => (hasValidDayParam ? dayParam : null)
+    () => (hasValidDayParam ? dayParam : readStoredDayNumber())
   );
 
   useEffect(() => {
     if (hasValidDayParam) {
       setSelectedDayNumber(dayParam);
+      writeStoredDayNumber(dayParam);
     }
   }, [hasValidDayParam, dayParam]);
 
@@ -67,14 +100,42 @@ export function DaysProvider({ children }: { children: ReactNode }) {
     days[0] ??
     null;
 
-  const setActiveDayNumber = (dayNumber: number) => {
-    setSelectedDayNumber(dayNumber);
-    if (location.pathname !== "/") {
-      navigate(`/?day=${dayNumber}`);
-    } else {
-      setSearchParams({ day: String(dayNumber) });
+  // Keep storage in sync once days resolve
+  useEffect(() => {
+    if (activeDay) {
+      writeStoredDayNumber(activeDay.dayNumber);
     }
-  };
+  }, [activeDay]);
+
+  const syncActiveDayNumber = useCallback((dayNumber: number) => {
+    if (!Number.isInteger(dayNumber) || dayNumber <= 0) return;
+    setSelectedDayNumber(dayNumber);
+    writeStoredDayNumber(dayNumber);
+  }, []);
+
+  const setActiveDayNumber = useCallback(
+    (dayNumber: number) => {
+      setSelectedDayNumber(dayNumber);
+      writeStoredDayNumber(dayNumber);
+
+      const sectionPath = resolveSectionListPath(location.pathname);
+      if (sectionPath === location.pathname) {
+        setSearchParams(
+          (prev) => {
+            const next = new URLSearchParams(prev);
+            next.set("day", String(dayNumber));
+            return next;
+          },
+          { replace: false }
+        );
+      } else if (sectionPath) {
+        navigate(`${sectionPath}?day=${dayNumber}`);
+      } else {
+        navigate(`/?day=${dayNumber}`);
+      }
+    },
+    [location.pathname, navigate, setSearchParams]
+  );
 
   return (
     <DaysContext.Provider
@@ -82,6 +143,7 @@ export function DaysProvider({ children }: { children: ReactNode }) {
         days,
         activeDay,
         setActiveDayNumber,
+        syncActiveDayNumber,
         refreshDays,
         loading,
         error,

@@ -13,6 +13,7 @@ import {
   type ResourceWithDayDTO,
 } from "@repo/shared";
 import { api } from "../lib/api";
+import { useDays } from "../context/DaysContext";
 import { CodeBlock } from "../components/CodeBlock";
 import { StudentSidebar, useStudentSidebar } from "../layouts/StudentLayout";
 
@@ -28,6 +29,7 @@ function isFetchableCodeUrl(url: string | null): boolean {
 export function CodeDetailPage() {
   const { id } = useParams<{ id: string }>();
   const { closeSidebar } = useStudentSidebar();
+  const { syncActiveDayNumber } = useDays();
   const [resource, setResource] = useState<ResourceWithDayDTO | null>(null);
   const [allCode, setAllCode] = useState<ResourceWithDayDTO[]>([]);
   const [fetchedCode, setFetchedCode] = useState<string | null>(null);
@@ -43,12 +45,14 @@ export function CodeDetailPage() {
         setLoading(true);
         setError(null);
         setFetchedCode(null);
-        const [detail, list] = await Promise.all([
-          api.getPublicCodeResource(id),
-          api.getPublicCodeResources().catch(() => [] as ResourceWithDayDTO[]),
-        ]);
+        const detail = await api.getPublicCodeResource(id);
         if (!active) return;
         setResource(detail);
+        syncActiveDayNumber(detail.day.dayNumber);
+        const list = await api
+          .getPublicCodeResources({ dayId: detail.dayId })
+          .catch(() => [] as ResourceWithDayDTO[]);
+        if (!active) return;
         setAllCode(list);
 
         if (!detail.content && detail.url && isFetchableCodeUrl(detail.url)) {
@@ -188,11 +192,11 @@ export function CodeDetailPage() {
 
       <div className="flex flex-wrap items-center justify-between gap-2">
         <Link
-          to="/code"
+          to={`/code?day=${resource.day.dayNumber}`}
           className="inline-flex items-center gap-1.5 text-sm font-medium text-zinc-400 transition hover:text-emerald-400"
         >
           <ArrowLeft className="h-4 w-4" />
-          All Code Snippets
+          Day {resource.day.dayNumber} Code Snippets
         </Link>
         <Link
           to={`/?day=${resource.day.dayNumber}`}

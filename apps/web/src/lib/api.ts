@@ -83,13 +83,31 @@ export const api = {
         method: "POST",
       }
     ),
-  getPublicExercises: () => request<ResourceWithDayDTO[]>("/api/exercises"),
+  getPublicExercises: (params?: { day?: number; dayId?: string }) => {
+    const qs = new URLSearchParams();
+    if (params?.dayId) qs.set("dayId", params.dayId);
+    else if (params?.day !== undefined) qs.set("day", String(params.day));
+    const suffix = qs.toString() ? `?${qs.toString()}` : "";
+    return request<ResourceWithDayDTO[]>(`/api/exercises${suffix}`);
+  },
   getPublicExercise: (id: string) =>
     request<ResourceWithDayDTO>(`/api/exercises/${id}`),
-  getPublicCodeResources: () => request<ResourceWithDayDTO[]>("/api/code"),
+  getPublicCodeResources: (params?: { day?: number; dayId?: string }) => {
+    const qs = new URLSearchParams();
+    if (params?.dayId) qs.set("dayId", params.dayId);
+    else if (params?.day !== undefined) qs.set("day", String(params.day));
+    const suffix = qs.toString() ? `?${qs.toString()}` : "";
+    return request<ResourceWithDayDTO[]>(`/api/code${suffix}`);
+  },
   getPublicCodeResource: (id: string) =>
     request<ResourceWithDayDTO>(`/api/code/${id}`),
-  getPublicMiniProjects: () => request<MiniProjectDTO[]>("/api/mini-projects"),
+  getPublicMiniProjects: (params?: { day?: number; dayId?: string }) => {
+    const qs = new URLSearchParams();
+    if (params?.dayId) qs.set("dayId", params.dayId);
+    else if (params?.day !== undefined) qs.set("day", String(params.day));
+    const suffix = qs.toString() ? `?${qs.toString()}` : "";
+    return request<MiniProjectDTO[]>(`/api/mini-projects${suffix}`);
+  },
   getPublicMiniProject: (id: string) =>
     request<MiniProjectDTO>(`/api/mini-projects/${id}`),
 
