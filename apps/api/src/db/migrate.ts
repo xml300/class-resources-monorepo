@@ -60,6 +60,14 @@ async function migrate() {
   const driveSyncSql = fs.readFileSync(driveSyncSqlPath, "utf8");
   await pool.query(driveSyncSql);
 
+  const codeFoldersSqlPath = path.join(
+    drizzleDir,
+    "0005_code_folders_and_github.sql"
+  );
+  console.log("Applying 0005_code_folders_and_github.sql...");
+  const codeFoldersSql = fs.readFileSync(codeFoldersSqlPath, "utf8");
+  await pool.query(codeFoldersSql);
+
   console.log("Database migration completed successfully.");
 }
 
