@@ -104,7 +104,7 @@ test("classifyDriveFile maps Coding Exercises/day-04.md and day-03-recap.md with
   }
 });
 
-test("classifyDriveFile maps Mini-Projects/day-04.md to Day 4 mini-project", () => {
+test("classifyDriveFile maps Mini-Projects/day-04.md to Day 4 primary mini-project", () => {
   const result = classifyDriveFile(
     makeFile({
       id: "mp-4",
@@ -118,8 +118,34 @@ test("classifyDriveFile maps Mini-Projects/day-04.md to Day 4 mini-project", () 
   assert.equal(result.kind, "mini-project");
   if (result.kind === "mini-project") {
     assert.equal(result.dayNumber, 4);
+    assert.equal(result.isPrimaryDayProject, true);
+    assert.equal(result.title, null);
+    assert.equal(result.summary, null);
+    assert.equal(result.order, 4);
     assert.equal(result.instructions, "# Day 4 Mini-Project\n\nInstructions here.");
     assert.equal(result.driveFileId, "mp-4");
+  }
+});
+
+test("classifyDriveFile maps extra Mini-Projects files like day-05-todo-api-dossier.md with heading title and excerpt", () => {
+  const result = classifyDriveFile(
+    makeFile({
+      id: "mp-5-dossier",
+      name: "day-05-todo-api-dossier.md",
+      sourcePath: "Mini-Projects/day-05-todo-api-dossier.md",
+      folderName: "Mini-Projects",
+    }),
+    "# Todo Backend API — Group Project Brief\n\n**Stack:** Node.js, Express, TypeScript\n\n---\n\n## Overview"
+  );
+
+  assert.equal(result.kind, "mini-project");
+  if (result.kind === "mini-project") {
+    assert.equal(result.dayNumber, 5);
+    assert.equal(result.isPrimaryDayProject, false);
+    assert.equal(result.title, "Todo Backend API — Group Project Brief");
+    assert.equal(result.summary, "Stack: Node.js, Express, TypeScript");
+    assert.equal(result.order, 6);
+    assert.equal(result.driveFileId, "mp-5-dossier");
   }
 });
 

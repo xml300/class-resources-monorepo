@@ -42,6 +42,7 @@ export interface ClassifiedResource {
 export interface ClassifiedMiniProject {
   kind: "mini-project";
   dayNumber: number;
+  isPrimaryDayProject: boolean;
   title: string | null;
   summary: string | null;
   instructions: string;
@@ -349,16 +350,25 @@ export function classifyDriveFile(
       };
     }
 
+    const isExactDayFile = /^day-?\d+\.(md|markdown)$/.test(
+      file.name.toLowerCase()
+    );
+
     return {
       kind: "mini-project",
       dayNumber,
-      title: frontmatter.title ?? null,
-      summary: frontmatter.summary ?? frontmatter.description ?? null,
+      isPrimaryDayProject: isExactDayFile,
+      title: isExactDayFile
+        ? (frontmatter.title ?? null)
+        : (frontmatter.title ?? heading ?? titleFromFilename(file.name)),
+      summary: isExactDayFile
+        ? (frontmatter.summary ?? frontmatter.description ?? null)
+        : (frontmatter.summary ?? frontmatter.description ?? excerpt ?? null),
       instructions: body,
       difficulty: frontmatter.difficulty,
       estimatedMinutes: frontmatter.estimatedMinutes,
       tags: frontmatter.tags,
-      order: frontmatter.order ?? dayNumber,
+      order: frontmatter.order ?? (isExactDayFile ? dayNumber : dayNumber + 1),
       driveFileId: file.id,
       driveModifiedTime,
       driveMd5Checksum: file.md5Checksum,

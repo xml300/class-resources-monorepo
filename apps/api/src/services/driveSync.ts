@@ -137,7 +137,6 @@ async function executeDriveSync(
     ]);
 
   const dayByNumber = new Map(existingDays.map((d) => [d.dayNumber, d]));
-  const dayNumberById = new Map(existingDays.map((d) => [d.id, d.dayNumber]));
 
   const resourceByDriveId = new Map<string, (typeof existingResources)[number]>();
   for (const res of existingResources) {
@@ -155,19 +154,9 @@ async function executeDriveSync(
     string,
     (typeof existingMiniProjects)[number]
   >();
-  const miniProjectByDayNumber = new Map<
-    number,
-    (typeof existingMiniProjects)[number]
-  >();
   for (const mp of existingMiniProjects) {
     if (mp.driveFileId) {
       miniProjectByDriveId.set(mp.driveFileId, mp);
-    }
-    if (mp.dayId) {
-      const dayNum = dayNumberById.get(mp.dayId);
-      if (dayNum !== undefined && !miniProjectByDayNumber.has(dayNum)) {
-        miniProjectByDayNumber.set(dayNum, mp);
-      }
     }
   }
 
@@ -359,17 +348,41 @@ async function executeDriveSync(
       }
     }
 
+    const matchedMiniProjectIds = new Set<string>();
+
     for (const mpItem of classifiedMiniProjects) {
       const targetDay = dayMap.get(mpItem.dayNumber);
       if (!targetDay) continue;
       const schedule = getDayScheduleEntry(mpItem.dayNumber);
-      const defaults = schedule.miniProject;
+      const defaults = mpItem.isPrimaryDayProject
+        ? schedule.miniProject
+        : undefined;
 
-      const match =
-        miniProjectByDriveId.get(mpItem.driveFileId) ??
-        miniProjectByDayNumber.get(mpItem.dayNumber);
+      let match = miniProjectByDriveId.get(mpItem.driveFileId);
+      if (match && matchedMiniProjectIds.has(match.id)) {
+        match = undefined;
+      }
+      if (!match) {
+        if (mpItem.isPrimaryDayProject) {
+          match = existingMiniProjects.find(
+            (mp) =>
+              !matchedMiniProjectIds.has(mp.id) &&
+              !mp.driveFileId &&
+              mp.dayId === targetDay.id
+          );
+        } else if (mpItem.title) {
+          match = existingMiniProjects.find(
+            (mp) =>
+              !matchedMiniProjectIds.has(mp.id) &&
+              !mp.driveFileId &&
+              mp.dayId === targetDay.id &&
+              mp.title === mpItem.title
+          );
+        }
+      }
 
       if (match) {
+        matchedMiniProjectIds.add(match.id);
         await tx
           .update(miniProjects)
           .set({
@@ -402,7 +415,7 @@ async function executeDriveSync(
           milestones: defaults?.milestones ?? [],
           difficulty: mpItem.difficulty ?? defaults?.difficulty ?? "INTERMEDIATE",
           estimatedMinutes:
-            mpItem.estimatedMinutes ?? defaults?.estimatedMinutes ?? 90,
+            mpItem.estimatedMinutes ?? defaults?.estimatedMinutes ?? null,
           tags: mpItem.tags ?? defaults?.tags ?? [],
           dueDate: defaults?.dueDate ?? null,
           order: mpItem.order,
