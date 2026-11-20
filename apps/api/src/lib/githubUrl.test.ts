@@ -2,10 +2,13 @@ import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import {
   buildGithubFolderUrl,
+  extractSubtreeBlobs,
   filterPreservedTreeBlobs,
   joinRepoFilePath,
   normalizeRepoTargetPath,
   parseGithubRepoUrl,
+  shouldIgnoreGithubFilePath,
+  suggestRunCommandFromFiles,
 } from "./githubUrl.js";
 
 describe("parseGithubRepoUrl", () => {
@@ -102,6 +105,56 @@ describe("filterPreservedTreeBlobs", () => {
   });
 });
 
+describe("extractSubtreeBlobs", () => {
+  const blobs = [
+    { path: "README.md", mode: "100644", type: "blob" as const, sha: "1", size: 10 },
+    { path: "day-01/api/package.json", mode: "100644", type: "blob" as const, sha: "2", size: 100 },
+    { path: "day-01/api/src/server.js", mode: "100644", type: "blob" as const, sha: "3", size: 200 },
+    { path: "day-01/api-v2/index.js", mode: "100644", type: "blob" as const, sha: "4", size: 50 },
+  ];
+
+  it("extracts and strips prefix for target subfolder without matching sibling prefixes", () => {
+    const extracted = extractSubtreeBlobs(blobs, "day-01/api");
+    assert.deepEqual(
+      extracted.map((b) => b.relativePath),
+      ["package.json", "src/server.js"]
+    );
+  });
+
+  it("returns all blobs when targetPath is empty", () => {
+    const extracted = extractSubtreeBlobs(blobs, "");
+    assert.equal(extracted.length, 4);
+  });
+});
+
+describe("shouldIgnoreGithubFilePath & suggestRunCommandFromFiles", () => {
+  it("ignores node_modules, lockfiles, binaries, and secret .env files", () => {
+    assert.ok(shouldIgnoreGithubFilePath("node_modules/express/index.js"));
+    assert.ok(shouldIgnoreGithubFilePath("package-lock.json"));
+    assert.ok(shouldIgnoreGithubFilePath(".env"));
+    assert.ok(shouldIgnoreGithubFilePath("assets/logo.png"));
+    assert.equal(shouldIgnoreGithubFilePath(".env.example"), null);
+    assert.equal(shouldIgnoreGithubFilePath("src/server.ts"), null);
+  });
+
+  it("suggests run commands from package.json, html, or entry files", () => {
+    assert.equal(
+      suggestRunCommandFromFiles([
+        { path: "package.json", content: '{"scripts":{"dev":"vite"}}' },
+      ]),
+      "npm run dev"
+    );
+    assert.equal(
+      suggestRunCommandFromFiles([{ path: "index.html", content: "<h1>Hi</h1>" }]),
+      "static"
+    );
+    assert.equal(
+      suggestRunCommandFromFiles([{ path: "server.js", content: "console.log(1)" }]),
+      "node server.js"
+    );
+  });
+});
+
 describe("buildGithubFolderUrl", () => {
   it("builds tree URLs for subfolders and root", () => {
     assert.equal(
@@ -114,3 +167,4 @@ describe("buildGithubFolderUrl", () => {
     );
   });
 });
+

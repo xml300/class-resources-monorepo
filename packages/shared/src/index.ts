@@ -230,6 +230,133 @@ export type PushResourceToGithubInput = z.infer<
   typeof pushResourceToGithubSchema
 >;
 
+export const pullResourceFromGithubSchema = z.object({
+  repoUrl: z
+    .string()
+    .trim()
+    .min(1, "GitHub repository URL is required")
+    .max(500),
+  branch: z
+    .string()
+    .trim()
+    .max(100)
+    .optional()
+    .transform((val) => (val && val.length > 0 ? val : undefined)),
+  targetPath: z
+    .string()
+    .trim()
+    .max(300)
+    .optional()
+    .default(""),
+});
+
+export type PullResourceFromGithubInput = z.infer<
+  typeof pullResourceFromGithubSchema
+>;
+
+export const importGithubResourceSchema = z.object({
+  title: z
+    .string()
+    .trim()
+    .max(200)
+    .optional()
+    .transform((val) => (val && val.length > 0 ? val : undefined)),
+  description: z
+    .string()
+    .trim()
+    .max(1000)
+    .nullable()
+    .optional()
+    .transform((val) => (val && val.length > 0 ? val : null)),
+  repoUrl: z
+    .string()
+    .trim()
+    .min(1, "GitHub repository URL is required")
+    .max(500),
+  branch: z
+    .string()
+    .trim()
+    .max(100)
+    .optional()
+    .transform((val) => (val && val.length > 0 ? val : undefined)),
+  targetPath: z
+    .string()
+    .trim()
+    .max(300)
+    .optional()
+    .default(""),
+  runCommand: z
+    .string()
+    .trim()
+    .max(300)
+    .nullable()
+    .optional()
+    .transform((val) => (val && val.length > 0 ? val : null)),
+  publishedAt: z.string().nullable().optional(),
+});
+
+export type ImportGithubResourceInput = z.infer<
+  typeof importGithubResourceSchema
+>;
+
+export const PR_REVIEW_EVENTS = [
+  "APPROVE",
+  "REQUEST_CHANGES",
+  "COMMENT",
+] as const;
+
+export type PrReviewEvent = (typeof PR_REVIEW_EVENTS)[number];
+
+export const submitPrReviewSchema = z.object({
+  repoUrl: z
+    .string()
+    .trim()
+    .min(1, "GitHub repository URL is required")
+    .max(500),
+  event: z.enum(PR_REVIEW_EVENTS),
+  body: z.string().trim().max(10000).optional().default(""),
+});
+
+export type SubmitPrReviewInput = z.infer<typeof submitPrReviewSchema>;
+
+export const createPrCommentSchema = z.object({
+  repoUrl: z
+    .string()
+    .trim()
+    .min(1, "GitHub repository URL is required")
+    .max(500),
+  body: z.string().trim().min(1, "Comment cannot be empty").max(10000),
+});
+
+export type CreatePrCommentInput = z.infer<typeof createPrCommentSchema>;
+
+export const PR_MERGE_METHODS = ["squash", "merge", "rebase"] as const;
+export type PrMergeMethod = (typeof PR_MERGE_METHODS)[number];
+
+export const mergePrSchema = z.object({
+  repoUrl: z
+    .string()
+    .trim()
+    .min(1, "GitHub repository URL is required")
+    .max(500),
+  mergeMethod: z.enum(PR_MERGE_METHODS).optional().default("squash"),
+  commitTitle: z
+    .string()
+    .trim()
+    .max(200)
+    .optional()
+    .transform((val) => (val && val.length > 0 ? val : undefined)),
+  commitMessage: z
+    .string()
+    .trim()
+    .max(2000)
+    .optional()
+    .transform((val) => (val && val.length > 0 ? val : undefined)),
+});
+
+export type MergePrInput = z.infer<typeof mergePrSchema>;
+
+
 const resourceFieldsSchema = z.object({
   title: z.string().trim().min(1, "Title is required").max(200),
   description: z.string().trim().max(1000).nullable().optional(),
@@ -390,6 +517,120 @@ export interface GithubStatusDTO {
   defaultRepoUrl: string | null;
   defaultBranch: string;
 }
+
+export interface PullFromGithubResultDTO {
+  resourceId?: string;
+  repoUrl: string;
+  owner: string;
+  repo: string;
+  branch: string;
+  targetPath: string;
+  folderUrl: string;
+  commitSha: string;
+  commitUrl: string;
+  filesPulled: number;
+  skippedCount: number;
+  skippedSample: Array<{ path: string; reason: string }>;
+  runCommand: string | null;
+  pulledAt: string;
+}
+
+export interface GithubRepoSuggestionDTO {
+  repoUrl: string;
+  owner: string;
+  repo: string;
+  label: string;
+}
+
+export interface GithubUserDTO {
+  login: string;
+  avatarUrl: string;
+  htmlUrl: string;
+}
+
+export interface GithubLabelDTO {
+  name: string;
+  color: string;
+}
+
+export interface GithubPullRequestSummaryDTO {
+  number: number;
+  title: string;
+  state: "open" | "closed";
+  draft: boolean;
+  merged: boolean;
+  htmlUrl: string;
+  user: GithubUserDTO | null;
+  headRef: string;
+  headSha: string;
+  baseRef: string;
+  createdAt: string;
+  updatedAt: string;
+  mergedAt: string | null;
+  comments: number;
+  reviewComments: number;
+  labels: GithubLabelDTO[];
+}
+
+export interface GithubPullRequestFileDTO {
+  filename: string;
+  status: string;
+  additions: number;
+  deletions: number;
+  changes: number;
+  patch: string | null;
+  previousFilename?: string | null;
+}
+
+export interface GithubPullRequestCommentDTO {
+  id: number;
+  body: string;
+  user: GithubUserDTO | null;
+  createdAt: string;
+  updatedAt: string;
+  htmlUrl: string;
+  path?: string | null;
+  line?: number | null;
+  isReviewComment: boolean;
+}
+
+export interface GithubPullRequestReviewDTO {
+  id: number;
+  state: string;
+  body: string;
+  user: GithubUserDTO | null;
+  submittedAt: string | null;
+  htmlUrl: string;
+}
+
+export interface GithubPullRequestCommitDTO {
+  sha: string;
+  message: string;
+  authorName: string;
+  date: string | null;
+  htmlUrl: string;
+}
+
+export interface GithubPullRequestDetailDTO extends GithubPullRequestSummaryDTO {
+  body: string;
+  additions: number;
+  deletions: number;
+  changedFiles: number;
+  commitsCount: number;
+  mergeable: boolean | null;
+  mergeableState: string | null;
+  files: GithubPullRequestFileDTO[];
+  commentsList: GithubPullRequestCommentDTO[];
+  reviews: GithubPullRequestReviewDTO[];
+  commits: GithubPullRequestCommitDTO[];
+}
+
+export interface MergePrResultDTO {
+  merged: boolean;
+  sha: string;
+  message: string;
+}
+
 
 export interface ResourceDTO {
   id: string;

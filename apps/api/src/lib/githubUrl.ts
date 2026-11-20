@@ -174,3 +174,224 @@ export function filterPreservedTreeBlobs(
     (entry) => entry.path !== targetPath && !entry.path.startsWith(prefix)
   );
 }
+
+export interface SubtreeBlobCandidate {
+  repoPath: string;
+  relativePath: string;
+  sha: string;
+  size?: number;
+}
+
+/**
+ * Extract all blobs belonging to `targetPath` (or the entire repo when `targetPath` is "")
+ * and strip the `targetPath/` prefix to produce relative paths for resource_files.
+ */
+export function extractSubtreeBlobs(
+  existingBlobs: Array<GitTreeBlobEntry & { size?: number }>,
+  targetPath: string
+): SubtreeBlobCandidate[] {
+  if (!targetPath) {
+    return existingBlobs.map((entry) => ({
+      repoPath: entry.path,
+      relativePath: entry.path,
+      sha: entry.sha,
+      size: entry.size,
+    }));
+  }
+
+  const prefix = `${targetPath}/`;
+  const results: SubtreeBlobCandidate[] = [];
+  for (const entry of existingBlobs) {
+    if (entry.path.startsWith(prefix)) {
+      const relativePath = entry.path.slice(prefix.length);
+      if (relativePath) {
+        results.push({
+          repoPath: entry.path,
+          relativePath,
+          sha: entry.sha,
+          size: entry.size,
+        });
+      }
+    } else if (entry.path === targetPath) {
+      // Target points to a single file
+      const fileName = targetPath.split("/").pop() || targetPath;
+      results.push({
+        repoPath: entry.path,
+        relativePath: fileName,
+        sha: entry.sha,
+        size: entry.size,
+      });
+    }
+  }
+  return results;
+}
+
+const IGNORED_DIRS = new Set([
+  "node_modules",
+  ".git",
+  "dist",
+  "build",
+  ".next",
+  ".nuxt",
+  ".turbo",
+  ".cache",
+  ".parcel-cache",
+  "coverage",
+  "__pycache__",
+  ".venv",
+  "venv",
+  ".idea",
+  ".vscode",
+  ".svelte-kit",
+  "out",
+  ".output",
+]);
+
+const IGNORED_FILES = new Set([
+  ".ds_store",
+  "thumbs.db",
+  "desktop.ini",
+  "package-lock.json",
+  "yarn.lock",
+  "pnpm-lock.yaml",
+  "bun.lockb",
+]);
+
+const BINARY_EXTENSIONS = new Set([
+  "png",
+  "jpg",
+  "jpeg",
+  "gif",
+  "webp",
+  "bmp",
+  "ico",
+  "tiff",
+  "avif",
+  "pdf",
+  "zip",
+  "tar",
+  "gz",
+  "tgz",
+  "rar",
+  "7z",
+  "woff",
+  "woff2",
+  "ttf",
+  "otf",
+  "eot",
+  "mp3",
+  "wav",
+  "ogg",
+  "mp4",
+  "webm",
+  "mov",
+  "avi",
+  "wasm",
+  "exe",
+  "dll",
+  "so",
+  "dylib",
+  "bin",
+  "dat",
+  "sqlite",
+  "db",
+  "class",
+  "jar",
+  "pyc",
+]);
+
+export function shouldIgnoreGithubFilePath(relativePath: string): string | null {
+  const segments = relativePath.split("/").filter(Boolean);
+  if (segments.length === 0) return "Empty path";
+
+  for (const seg of segments) {
+    if (seg === "." || seg === "..") {
+      return "Invalid path segment";
+    }
+  }
+
+  for (let i = 0; i < segments.length - 1; i++) {
+    if (IGNORED_DIRS.has(segments[i])) {
+      return `Ignored directory (${segments[i]})`;
+    }
+  }
+
+  const filename = segments[segments.length - 1];
+  const lower = filename.toLowerCase();
+
+  if (IGNORED_FILES.has(lower)) {
+    return "Ignored lock/system file";
+  }
+  if (
+    (lower === ".env" || lower.startsWith(".env.")) &&
+    !lower.endsWith(".example") &&
+    !lower.endsWith(".sample")
+  ) {
+    return "Secret .env file excluded";
+  }
+  if (lower.endsWith(".log")) {
+    return "Log file excluded";
+  }
+
+  const dotIdx = lower.lastIndexOf(".");
+  if (dotIdx !== -1) {
+    const ext = lower.slice(dotIdx + 1);
+    if (BINARY_EXTENSIONS.has(ext)) {
+      return `Binary file (.${ext}) excluded`;
+    }
+  }
+
+  return null;
+}
+
+export function suggestRunCommandFromFiles(
+  files: Array<{ path: string; content: string }>
+): string | null {
+  const fileMap = new Map(files.map((f) => [f.path, f.content]));
+
+  const pkgRaw = fileMap.get("package.json");
+  if (pkgRaw) {
+    try {
+      const pkg = JSON.parse(pkgRaw) as {
+        scripts?: Record<string, string>;
+        main?: string;
+      };
+      if (pkg.scripts?.dev) return "npm run dev";
+      if (pkg.scripts?.start) return "npm start";
+      if (pkg.scripts?.serve) return "npm run serve";
+      if (pkg.main && fileMap.has(pkg.main.replace(/^\.\//, ""))) {
+        return `node ${pkg.main.replace(/^\.\//, "")}`;
+      }
+    } catch {
+      // Ignore malformed package.json
+    }
+  }
+
+  if (fileMap.has("index.html")) return "static";
+  if (fileMap.has("public/index.html")) return "static";
+
+  const entryCandidates = [
+    "server.ts",
+    "server.js",
+    "index.ts",
+    "index.js",
+    "main.ts",
+    "main.js",
+    "app.ts",
+    "app.js",
+    "src/index.ts",
+    "src/index.js",
+    "src/main.ts",
+    "src/main.js",
+  ];
+  for (const candidate of entryCandidates) {
+    if (fileMap.has(candidate)) {
+      return candidate.endsWith(".ts")
+        ? `npx --yes tsx ${candidate}`
+        : `node ${candidate}`;
+    }
+  }
+
+  return null;
+}
+

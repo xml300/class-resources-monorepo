@@ -17,13 +17,19 @@ import {
   Square,
   Terminal,
   Trash2,
+  Zap,
 } from "lucide-react";
 import {
   inferCodeLanguage,
   type ResourceFileDTO,
   type ResourceWithDayDTO,
 } from "@repo/shared";
+import {
+  ApiPreviewPanel,
+  type ActiveServerInfo,
+} from "./ApiPreviewPanel";
 import { CodeMirrorEditor } from "./CodeMirrorEditor";
+import { detectApiEndpoints, isLikelyApiProject } from "../lib/apiDetector";
 import { suggestRunCommand } from "../lib/folderUpload";
 import { triggerZipDownload } from "../lib/zipDownload";
 import {
@@ -173,10 +179,14 @@ export function CodeFolderWorkspace({
   const [phase, setPhase] = useState<ProjectRunnerPhase>("idle");
   const [phaseDetail, setPhaseDetail] = useState<string>("");
   const [consoleOutput, setConsoleOutput] = useState<string>("");
-  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
-  const [previewPort, setPreviewPort] = useState<number | null>(null);
+  const [servers, setServers] = useState<ActiveServerInfo[]>([]);
+  const [selectedPort, setSelectedPort] = useState<number | null>(null);
+  const [previewPath, setPreviewPath] = useState<string>("/");
+  const [previewPathInput, setPreviewPathInput] = useState<string>("/");
   const [previewKey, setPreviewKey] = useState(0);
-  const [bottomTab, setBottomTab] = useState<"console" | "preview">("console");
+  const [bottomTab, setBottomTab] = useState<"console" | "preview" | "api">(
+    "console"
+  );
   const [copiedFile, setCopiedFile] = useState(false);
   const [copiedClone, setCopiedClone] = useState(false);
 
@@ -201,8 +211,10 @@ export function CodeFolderWorkspace({
     setPhase("idle");
     setPhaseDetail("");
     setConsoleOutput("");
-    setPreviewUrl(null);
-    setPreviewPort(null);
+    setServers([]);
+    setSelectedPort(null);
+    setPreviewPath("/");
+    setPreviewPathInput("/");
     setBottomTab("console");
   }, [resource.id, files, defaultRunCmd]);
 
@@ -230,6 +242,32 @@ export function CodeFolderWorkspace({
       })),
     [files, editedMap]
   );
+
+  const detectedEndpoints = useMemo(
+    () => detectApiEndpoints(currentFiles),
+    [currentFiles]
+  );
+
+  const likelyApi = useMemo(
+    () => isLikelyApiProject(currentFiles),
+    [currentFiles]
+  );
+
+  const activeServer = useMemo(
+    () => servers.find((s) => s.port === selectedPort) ?? servers[0] ?? null,
+    [servers, selectedPort]
+  );
+  const previewUrl = activeServer?.url ?? null;
+  const previewPort = activeServer?.port ?? null;
+
+  const fullPreviewUrl = useMemo(() => {
+    if (!previewUrl) return null;
+    const base = previewUrl.replace(/\/+$/, "");
+    const cleanPath = previewPath.startsWith("/")
+      ? previewPath
+      : `/${previewPath}`;
+    return `${base}${cleanPath}`;
+  }, [previewUrl, previewPath]);
 
   const activeFile = useMemo(
     () => currentFiles.find((f) => f.path === activePath) ?? currentFiles[0],
@@ -273,9 +311,12 @@ export function CodeFolderWorkspace({
 
   const handleRun = useCallback(async () => {
     setConsoleOutput("");
-    setPreviewUrl(null);
-    setPreviewPort(null);
+    setServers([]);
+    setSelectedPort(null);
+    setPreviewPath("/");
+    setPreviewPathInput("/");
     setBottomTab("console");
+    const isApi = isLikelyApiProject(currentFiles);
     try {
       await runProjectInWebContainer(
         currentFiles.map((f) => ({ path: f.path, content: f.content })),
@@ -289,9 +330,14 @@ export function CodeFolderWorkspace({
             setConsoleOutput((prev) => prev + chunk);
           },
           onServerReady: (url, port) => {
-            setPreviewUrl(url);
-            setPreviewPort(port);
-            setBottomTab("preview");
+            setServers((prev) => {
+              const filtered = prev.filter((s) => s.port !== port);
+              return [...filtered, { port, url }];
+            });
+            setSelectedPort((prev) => prev ?? port);
+            setBottomTab((prev) =>
+              prev === "console" ? (isApi ? "api" : "preview") : prev
+            );
           },
           onExit: () => {},
         }
@@ -309,8 +355,8 @@ export function CodeFolderWorkspace({
     await stopProjectExecution();
     setPhase("idle");
     setPhaseDetail("Stopped");
-    setPreviewUrl(null);
-    setPreviewPort(null);
+    setServers([]);
+    setSelectedPort(null);
   }, []);
 
   const handleReset = () => {
@@ -605,6 +651,26 @@ export function CodeFolderWorkspace({
                 <span className="h-2 w-2 rounded-full bg-emerald-400" />
               )}
             </button>
+            <button
+              type="button"
+              onClick={() => setBottomTab("api")}
+              className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1 text-xs font-medium transition ${
+                bottomTab === "api"
+                  ? "bg-zinc-800 text-zinc-100"
+                  : "text-zinc-400 hover:text-zinc-200"
+              }`}
+            >
+              <Zap className="h-3.5 w-3.5" />
+              API Explorer
+              {likelyApi && (
+                <span className="rounded bg-emerald-950/80 px-1.5 py-0.2 text-[10px] text-emerald-300">
+                  API
+                </span>
+              )}
+              {previewUrl && (
+                <span className="h-2 w-2 rounded-full bg-emerald-400" />
+              )}
+            </button>
           </div>
 
           <div className="flex items-center gap-2">
@@ -631,26 +697,17 @@ export function CodeFolderWorkspace({
                 <Trash2 className="h-3.5 w-3.5" />
               </button>
             )}
-            {bottomTab === "preview" && previewUrl && (
-              <>
-                <button
-                  type="button"
-                  onClick={() => setPreviewKey((k) => k + 1)}
-                  title="Reload preview"
-                  className="rounded-md p-1 text-zinc-400 hover:bg-zinc-800 hover:text-zinc-200"
-                >
-                  <RefreshCw className="h-3.5 w-3.5" />
-                </button>
-                <a
-                  href={previewUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  title="Open preview in new tab"
-                  className="rounded-md p-1 text-zinc-400 hover:bg-zinc-800 hover:text-zinc-200"
-                >
-                  <ExternalLink className="h-3.5 w-3.5" />
-                </a>
-              </>
+            {fullPreviewUrl && (
+              <a
+                href={fullPreviewUrl}
+                target="_blank"
+                rel="noreferrer"
+                title="Open preview in new tab"
+                className="inline-flex items-center gap-1.5 rounded-lg border border-zinc-700 bg-zinc-900 px-2.5 py-1 text-[11px] font-medium text-zinc-200 transition hover:border-emerald-700 hover:text-emerald-300"
+              >
+                <ExternalLink className="h-3 w-3" />
+                Open in New Tab
+              </a>
             )}
           </div>
         </div>
@@ -670,17 +727,95 @@ export function CodeFolderWorkspace({
             )}
             <div ref={consoleEndRef} />
           </div>
-        ) : previewUrl ? (
+        ) : bottomTab === "api" ? (
+          <ApiPreviewPanel
+            servers={servers}
+            selectedPort={previewPort}
+            onSelectPort={(port) => setSelectedPort(port)}
+            detectedEndpoints={detectedEndpoints}
+          />
+        ) : fullPreviewUrl ? (
           <div className="flex flex-col">
-            <div className="flex items-center gap-2 border-b border-zinc-800 bg-zinc-900/40 px-3 py-1.5 font-mono text-[11px] text-zinc-400">
-              <span className="rounded bg-emerald-950/70 px-1.5 py-0.5 text-emerald-300">
-                :{previewPort ?? 3000}
-              </span>
-              <span className="truncate">{previewUrl}</span>
-            </div>
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                const normalized = previewPathInput.trim()
+                  ? previewPathInput.trim().startsWith("/")
+                    ? previewPathInput.trim()
+                    : `/${previewPathInput.trim()}`
+                  : "/";
+                setPreviewPath(normalized);
+                setPreviewPathInput(normalized);
+                setPreviewKey((k) => k + 1);
+              }}
+              className="flex flex-wrap items-center gap-2 border-b border-zinc-800 bg-zinc-900/40 px-3 py-1.5"
+            >
+              {servers.length > 1 ? (
+                <select
+                  aria-label="Preview server port"
+                  value={previewPort ?? ""}
+                  onChange={(e) => {
+                    setSelectedPort(Number(e.target.value));
+                    setPreviewKey((k) => k + 1);
+                  }}
+                  className="rounded bg-emerald-950/70 px-1.5 py-0.5 font-mono text-[11px] text-emerald-300 focus:outline-none"
+                >
+                  {servers.map((s) => (
+                    <option
+                      key={s.port}
+                      value={s.port}
+                      className="bg-zinc-900 text-zinc-100"
+                    >
+                      :{s.port}
+                    </option>
+                  ))}
+                </select>
+              ) : (
+                <span className="rounded bg-emerald-950/70 px-1.5 py-0.5 font-mono text-[11px] text-emerald-300">
+                  :{previewPort ?? 3000}
+                </span>
+              )}
+              <div className="flex min-w-[200px] flex-1 items-center rounded-md border border-zinc-800 bg-zinc-950 px-2 py-1 font-mono text-[11px]">
+                <span className="hidden truncate text-zinc-500 sm:inline">
+                  {previewUrl?.replace(/\/+$/, "")}
+                </span>
+                <input
+                  type="text"
+                  value={previewPathInput}
+                  onChange={(e) => setPreviewPathInput(e.target.value)}
+                  aria-label="Preview path"
+                  placeholder="/"
+                  className="min-w-[80px] flex-1 bg-transparent text-zinc-200 focus:outline-none"
+                />
+              </div>
+              <button
+                type="submit"
+                className="rounded-md border border-zinc-700 bg-zinc-900 px-2.5 py-1 text-[11px] font-medium text-zinc-200 hover:border-emerald-700 hover:text-emerald-300"
+              >
+                Go
+              </button>
+              <button
+                type="button"
+                onClick={() => setPreviewKey((k) => k + 1)}
+                title="Reload preview"
+                className="rounded-md border border-zinc-700 bg-zinc-900 p-1 text-zinc-300 hover:border-emerald-700 hover:text-emerald-300"
+              >
+                <RefreshCw className="h-3.5 w-3.5" />
+              </button>
+              <a
+                href={fullPreviewUrl}
+                target="_blank"
+                rel="noreferrer"
+                title="Open preview in new tab"
+                className="inline-flex items-center gap-1 rounded-md border border-emerald-800/70 bg-emerald-950/60 px-2.5 py-1 text-[11px] font-medium text-emerald-200 hover:bg-emerald-900/60"
+              >
+                <ExternalLink className="h-3 w-3" />
+                New Tab
+              </a>
+            </form>
             <iframe
-              key={`${previewUrl}-${previewKey}`}
-              src={previewUrl}
+              key={`${fullPreviewUrl}-${previewKey}`}
+              src={fullPreviewUrl}
               title={`${resource.title} Live Preview`}
               className="h-[460px] w-full bg-white"
               sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-modals"
@@ -691,7 +826,8 @@ export function CodeFolderWorkspace({
             <Globe className="mb-2 h-6 w-6 text-zinc-600" />
             <p>No live server running yet.</p>
             <p className="mt-1 text-zinc-600">
-              Start a web server (e.g. <code className="text-zinc-400">npm run dev</code>,{" "}
+              Start a web server (e.g.{" "}
+              <code className="text-zinc-400">npm run dev</code>,{" "}
               <code className="text-zinc-400">static</code>, or an Express app)
               to see the live preview here.
             </p>

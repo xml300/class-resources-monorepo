@@ -55,6 +55,11 @@ const AdminProjectsPage = lazy(() =>
     default: m.AdminProjectsPage,
   }))
 );
+const AdminPullRequestsPage = lazy(() =>
+  import("./pages/AdminPullRequestsPage").then((m) => ({
+    default: m.AdminPullRequestsPage,
+  }))
+);
 
 function RouteFallback() {
   return (
@@ -111,6 +116,10 @@ export function App() {
                     <Route
                       path="/admin/projects"
                       element={<AdminProjectsPage />}
+                    />
+                    <Route
+                      path="/admin/prs"
+                      element={<AdminPullRequestsPage />}
                     />
                   </Route>
                 </Routes>

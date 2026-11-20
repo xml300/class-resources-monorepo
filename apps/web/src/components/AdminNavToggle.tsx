@@ -3,6 +3,8 @@ import { Link, useLocation } from "react-router-dom";
 export function AdminNavToggle() {
   const location = useLocation();
   const isProjects = location.pathname.startsWith("/admin/projects");
+  const isPrs = location.pathname.startsWith("/admin/prs");
+  const isDays = !isProjects && !isPrs;
 
   return (
     <nav
@@ -12,7 +14,7 @@ export function AdminNavToggle() {
       <Link
         to="/admin"
         className={`rounded-lg px-3.5 py-1.5 transition ${
-          !isProjects
+          isDays
             ? "bg-zinc-800 text-zinc-100 shadow-xs"
             : "text-zinc-400 hover:text-zinc-200"
         }`}
@@ -28,6 +30,16 @@ export function AdminNavToggle() {
         }`}
       >
         Mini Projects
+      </Link>
+      <Link
+        to="/admin/prs"
+        className={`rounded-lg px-3.5 py-1.5 transition ${
+          isPrs
+            ? "bg-emerald-800 text-emerald-50 shadow-xs"
+            : "text-zinc-400 hover:text-zinc-200"
+        }`}
+      >
+        Pull Requests
       </Link>
     </nav>
   );

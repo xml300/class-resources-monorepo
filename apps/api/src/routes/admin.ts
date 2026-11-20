@@ -12,15 +12,31 @@ import {
   updateMiniProjectSchema,
   uploadCodeFolderFilesSchema,
   pushResourceToGithubSchema,
+  pullResourceFromGithubSchema,
+  importGithubResourceSchema,
+  submitPrReviewSchema,
+  createPrCommentSchema,
+  mergePrSchema,
   inferCodeLanguage,
+  type GithubRepoSuggestionDTO,
 } from "@repo/shared";
 import { db } from "../db/index.js";
 import { days, resources, resourceFiles, miniProjects } from "../db/schema.js";
 import { env } from "../env.js";
 import { requireAdmin } from "../middleware/auth.js";
 import { hashDayPassword } from "../lib/dayPassword.js";
+import { parseGithubRepoUrl } from "../lib/githubUrl.js";
 import { syncFromDrive } from "../services/driveSync.js";
+import { GithubApiError } from "../services/githubClient.js";
 import { GithubPushError, pushFilesToGithub } from "../services/githubPush.js";
+import { pullFilesFromGithub } from "../services/githubPull.js";
+import {
+  createPullRequestComment,
+  getPullRequestDetail,
+  listPullRequests,
+  mergePullRequest,
+  submitPullRequestReview,
+} from "../services/githubPr.js";
 
 export const adminRouter = Router();
 
@@ -80,6 +96,214 @@ adminRouter.get("/github/status", (_req, res) => {
     defaultRepoUrl: env.GITHUB_DEFAULT_REPO.trim() || null,
     defaultBranch: env.GITHUB_DEFAULT_BRANCH.trim() || "main",
   });
+});
+
+// Suggested GitHub repositories (default repo + linked code/project repos)
+adminRouter.get("/github/repos", async (_req, res, next) => {
+  try {
+    const suggestions = new Map<string, GithubRepoSuggestionDTO>();
+    const addCandidate = (rawUrl: string | null | undefined, label: string) => {
+      if (!rawUrl || !rawUrl.trim()) return;
+      try {
+        const parsed = parseGithubRepoUrl(rawUrl);
+        if (!suggestions.has(parsed.canonicalRepoUrl)) {
+          suggestions.set(parsed.canonicalRepoUrl, {
+            repoUrl: parsed.canonicalRepoUrl,
+            owner: parsed.owner,
+            repo: parsed.repo,
+            label,
+          });
+        }
+      } catch {
+        // Ignore non-GitHub URLs
+      }
+    };
+
+    if (env.GITHUB_DEFAULT_REPO.trim()) {
+      addCandidate(env.GITHUB_DEFAULT_REPO, "Default Repo");
+    }
+
+    const [resourceRows, projectRows] = await Promise.all([
+      db.query.resources.findMany({
+        columns: { githubRepoUrl: true, title: true },
+      }),
+      db.query.miniProjects.findMany({
+        columns: { starterRepoUrl: true, title: true },
+      }),
+    ]);
+
+    for (const r of resourceRows) {
+      addCandidate(r.githubRepoUrl, r.title);
+    }
+    for (const p of projectRows) {
+      addCandidate(p.starterRepoUrl, p.title);
+    }
+
+    res.json(Array.from(suggestions.values()));
+  } catch (err) {
+    next(err);
+  }
+});
+
+// List Pull Requests for a GitHub repository
+adminRouter.get("/github/prs", async (req, res, next) => {
+  try {
+    const repoUrl =
+      typeof req.query.repoUrl === "string" && req.query.repoUrl.trim()
+        ? req.query.repoUrl.trim()
+        : env.GITHUB_DEFAULT_REPO.trim();
+
+    if (!repoUrl) {
+      res.status(400).json({ error: "GitHub repository URL is required" });
+      return;
+    }
+
+    const rawState =
+      typeof req.query.state === "string" ? req.query.state.toLowerCase() : "open";
+    const state: "open" | "closed" | "all" =
+      rawState === "closed" || rawState === "all" ? rawState : "open";
+
+    const prs = await listPullRequests({ repoUrl, state });
+    res.json(prs);
+  } catch (err) {
+    if (err instanceof GithubApiError) {
+      res.status(err.status).json({ error: err.message });
+      return;
+    }
+    next(err);
+  }
+});
+
+// Get full Pull Request details including diffs, comments, reviews, and commits
+adminRouter.get("/github/prs/:number", async (req, res, next) => {
+  try {
+    const pullNumber = Number(req.params.number);
+    if (!Number.isInteger(pullNumber) || pullNumber <= 0) {
+      res.status(400).json({ error: "Invalid pull request number" });
+      return;
+    }
+
+    const repoUrl =
+      typeof req.query.repoUrl === "string" && req.query.repoUrl.trim()
+        ? req.query.repoUrl.trim()
+        : env.GITHUB_DEFAULT_REPO.trim();
+
+    if (!repoUrl) {
+      res.status(400).json({ error: "GitHub repository URL is required" });
+      return;
+    }
+
+    const detail = await getPullRequestDetail({ repoUrl, pullNumber });
+    res.json(detail);
+  } catch (err) {
+    if (err instanceof GithubApiError) {
+      res.status(err.status).json({ error: err.message });
+      return;
+    }
+    next(err);
+  }
+});
+
+// Submit a Pull Request review (APPROVE, REQUEST_CHANGES, COMMENT)
+adminRouter.post("/github/prs/:number/reviews", async (req, res, next) => {
+  try {
+    const pullNumber = Number(req.params.number);
+    if (!Number.isInteger(pullNumber) || pullNumber <= 0) {
+      res.status(400).json({ error: "Invalid pull request number" });
+      return;
+    }
+
+    const parsed = submitPrReviewSchema.safeParse(req.body);
+    if (!parsed.success) {
+      res.status(400).json({
+        error: "Validation failed",
+        details: parsed.error.flatten().fieldErrors,
+      });
+      return;
+    }
+
+    const review = await submitPullRequestReview({
+      repoUrl: parsed.data.repoUrl,
+      pullNumber,
+      event: parsed.data.event,
+      body: parsed.data.body,
+    });
+    res.status(201).json(review);
+  } catch (err) {
+    if (err instanceof GithubApiError) {
+      res.status(err.status).json({ error: err.message });
+      return;
+    }
+    next(err);
+  }
+});
+
+// Add a conversation comment to a Pull Request
+adminRouter.post("/github/prs/:number/comments", async (req, res, next) => {
+  try {
+    const pullNumber = Number(req.params.number);
+    if (!Number.isInteger(pullNumber) || pullNumber <= 0) {
+      res.status(400).json({ error: "Invalid pull request number" });
+      return;
+    }
+
+    const parsed = createPrCommentSchema.safeParse(req.body);
+    if (!parsed.success) {
+      res.status(400).json({
+        error: "Validation failed",
+        details: parsed.error.flatten().fieldErrors,
+      });
+      return;
+    }
+
+    const comment = await createPullRequestComment({
+      repoUrl: parsed.data.repoUrl,
+      pullNumber,
+      body: parsed.data.body,
+    });
+    res.status(201).json(comment);
+  } catch (err) {
+    if (err instanceof GithubApiError) {
+      res.status(err.status).json({ error: err.message });
+      return;
+    }
+    next(err);
+  }
+});
+
+// Merge a Pull Request
+adminRouter.post("/github/prs/:number/merge", async (req, res, next) => {
+  try {
+    const pullNumber = Number(req.params.number);
+    if (!Number.isInteger(pullNumber) || pullNumber <= 0) {
+      res.status(400).json({ error: "Invalid pull request number" });
+      return;
+    }
+
+    const parsed = mergePrSchema.safeParse(req.body);
+    if (!parsed.success) {
+      res.status(400).json({
+        error: "Validation failed",
+        details: parsed.error.flatten().fieldErrors,
+      });
+      return;
+    }
+
+    const result = await mergePullRequest({
+      repoUrl: parsed.data.repoUrl,
+      pullNumber,
+      mergeMethod: parsed.data.mergeMethod,
+      commitTitle: parsed.data.commitTitle,
+      commitMessage: parsed.data.commitMessage,
+    });
+    res.json(result);
+  } catch (err) {
+    if (err instanceof GithubApiError) {
+      res.status(err.status).json({ error: err.message });
+      return;
+    }
+    next(err);
+  }
 });
 
 // List all days (including drafts) with all resources
@@ -641,6 +865,202 @@ adminRouter.post("/resources/:id/push-github", async (req, res, next) => {
     res.json(result);
   } catch (err) {
     if (err instanceof GithubPushError) {
+      res.status(err.status).json({ error: err.message });
+      return;
+    }
+    next(err);
+  }
+});
+
+// Pull / sync a code resource's files from GitHub
+adminRouter.post("/resources/:id/pull-github", async (req, res, next) => {
+  try {
+    const parsed = pullResourceFromGithubSchema.safeParse(req.body);
+    if (!parsed.success) {
+      res.status(400).json({
+        error: "Validation failed",
+        details: parsed.error.flatten().fieldErrors,
+      });
+      return;
+    }
+
+    const resource = await db.query.resources.findFirst({
+      where: eq(resources.id, req.params.id),
+    });
+
+    if (!resource) {
+      res.status(404).json({ error: "Resource not found" });
+      return;
+    }
+
+    const pulled = await pullFilesFromGithub({
+      repoUrl: parsed.data.repoUrl,
+      branch: parsed.data.branch,
+      targetPath: parsed.data.targetPath,
+    });
+
+    const nextRunCommand = resource.runCommand || pulled.suggestedRunCommand;
+    const now = new Date();
+
+    await db.transaction(async (tx) => {
+      await tx
+        .delete(resourceFiles)
+        .where(eq(resourceFiles.resourceId, resource.id));
+
+      await tx.insert(resourceFiles).values(
+        pulled.files.map((f) => ({
+          resourceId: resource.id,
+          path: f.path,
+          content: f.content,
+          language: f.language,
+          sizeBytes: f.sizeBytes,
+        }))
+      );
+
+      await tx
+        .update(resources)
+        .set({
+          type: "CODE",
+          url: null,
+          content: null,
+          runCommand: nextRunCommand,
+          githubRepoUrl: pulled.repoUrl,
+          githubBranch: pulled.branch,
+          githubPath: pulled.targetPath,
+          githubCommitSha: pulled.commitSha,
+          githubPushedAt: new Date(pulled.pulledAt),
+          updatedAt: now,
+        })
+        .where(eq(resources.id, resource.id));
+    });
+
+    res.json({
+      resourceId: resource.id,
+      repoUrl: pulled.repoUrl,
+      owner: pulled.owner,
+      repo: pulled.repo,
+      branch: pulled.branch,
+      targetPath: pulled.targetPath,
+      folderUrl: pulled.folderUrl,
+      commitSha: pulled.commitSha,
+      commitUrl: pulled.commitUrl,
+      filesPulled: pulled.files.length,
+      skippedCount: pulled.skipped.length,
+      skippedSample: pulled.skipped.slice(0, 10),
+      runCommand: nextRunCommand,
+      pulledAt: pulled.pulledAt,
+    });
+  } catch (err) {
+    if (err instanceof GithubApiError) {
+      res.status(err.status).json({ error: err.message });
+      return;
+    }
+    next(err);
+  }
+});
+
+// Create a new CODE folder resource under a day by pulling directly from GitHub
+adminRouter.post("/days/:dayId/pull-github", async (req, res, next) => {
+  try {
+    const parsed = importGithubResourceSchema.safeParse(req.body);
+    if (!parsed.success) {
+      res.status(400).json({
+        error: "Validation failed",
+        details: parsed.error.flatten().fieldErrors,
+      });
+      return;
+    }
+
+    const existingDay = await db.query.days.findFirst({
+      where: eq(days.id, req.params.dayId),
+      with: {
+        resources: {
+          columns: { order: true },
+        },
+      },
+    });
+    if (!existingDay) {
+      res.status(404).json({ error: "Day not found" });
+      return;
+    }
+
+    const pulled = await pullFilesFromGithub({
+      repoUrl: parsed.data.repoUrl,
+      branch: parsed.data.branch,
+      targetPath: parsed.data.targetPath,
+    });
+
+    const derivedTitle =
+      parsed.data.title ||
+      (pulled.targetPath
+        ? pulled.targetPath.split("/").pop() || pulled.repo
+        : pulled.repo);
+
+    const nextOrder =
+      existingDay.resources.length > 0
+        ? Math.max(...existingDay.resources.map((r) => r.order)) + 1
+        : 1;
+
+    const finalRunCommand =
+      parsed.data.runCommand ?? pulled.suggestedRunCommand ?? null;
+
+    const created = await db.transaction(async (tx) => {
+      const [resource] = await tx
+        .insert(resources)
+        .values({
+          dayId: existingDay.id,
+          title: derivedTitle,
+          description: parsed.data.description ?? null,
+          type: "CODE",
+          url: null,
+          content: null,
+          runCommand: finalRunCommand,
+          githubRepoUrl: pulled.repoUrl,
+          githubBranch: pulled.branch,
+          githubPath: pulled.targetPath,
+          githubCommitSha: pulled.commitSha,
+          githubPushedAt: new Date(pulled.pulledAt),
+          order: nextOrder,
+          publishedAt:
+            parsed.data.publishedAt !== undefined
+              ? parsed.data.publishedAt
+                ? new Date(parsed.data.publishedAt)
+                : null
+              : new Date(),
+        })
+        .returning();
+
+      await tx.insert(resourceFiles).values(
+        pulled.files.map((f) => ({
+          resourceId: resource.id,
+          path: f.path,
+          content: f.content,
+          language: f.language,
+          sizeBytes: f.sizeBytes,
+        }))
+      );
+
+      return resource;
+    });
+
+    res.status(201).json({
+      resourceId: created.id,
+      repoUrl: pulled.repoUrl,
+      owner: pulled.owner,
+      repo: pulled.repo,
+      branch: pulled.branch,
+      targetPath: pulled.targetPath,
+      folderUrl: pulled.folderUrl,
+      commitSha: pulled.commitSha,
+      commitUrl: pulled.commitUrl,
+      filesPulled: pulled.files.length,
+      skippedCount: pulled.skipped.length,
+      skippedSample: pulled.skipped.slice(0, 10),
+      runCommand: finalRunCommand,
+      pulledAt: pulled.pulledAt,
+    });
+  } catch (err) {
+    if (err instanceof GithubApiError) {
       res.status(err.status).json({ error: err.message });
       return;
     }

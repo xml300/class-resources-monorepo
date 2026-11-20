@@ -1,16 +1,28 @@
 import type {
   CreateDayInput,
   CreateMiniProjectInput,
+  CreatePrCommentInput,
   CreateResourceInput,
   DayWithResourcesDTO,
+  GithubPullRequestCommentDTO,
+  GithubPullRequestDetailDTO,
+  GithubPullRequestReviewDTO,
+  GithubPullRequestSummaryDTO,
+  GithubRepoSuggestionDTO,
   GithubStatusDTO,
+  ImportGithubResourceInput,
   LoginInput,
+  MergePrInput,
+  MergePrResultDTO,
   MiniProjectDTO,
+  PullFromGithubResultDTO,
+  PullResourceFromGithubInput,
   PushResourceToGithubInput,
   PushToGithubResultDTO,
   ResourceDTO,
   ResourceFileDTO,
   ResourceWithDayDTO,
+  SubmitPrReviewInput,
   UpdateDayInput,
   UpdateMiniProjectInput,
   UpdateResourceInput,
@@ -176,8 +188,58 @@ export const api = {
       }
     ),
   getGithubStatus: () => request<GithubStatusDTO>("/api/admin/github/status"),
+  getGithubRepos: () =>
+    request<GithubRepoSuggestionDTO[]>("/api/admin/github/repos"),
   pushResourceToGithub: (id: string, data: PushResourceToGithubInput) =>
     request<PushToGithubResultDTO>(`/api/admin/resources/${id}/push-github`, {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+  pullResourceFromGithub: (id: string, data: PullResourceFromGithubInput) =>
+    request<PullFromGithubResultDTO>(`/api/admin/resources/${id}/pull-github`, {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+  importGithubResource: (dayId: string, data: ImportGithubResourceInput) =>
+    request<PullFromGithubResultDTO>(`/api/admin/days/${dayId}/pull-github`, {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+
+  // Admin GitHub Pull Requests
+  getGithubPullRequests: (
+    repoUrl: string,
+    state: "open" | "closed" | "all" = "open"
+  ) => {
+    const qs = new URLSearchParams({ repoUrl, state });
+    return request<GithubPullRequestSummaryDTO[]>(
+      `/api/admin/github/prs?${qs.toString()}`
+    );
+  },
+  getGithubPullRequestDetail: (repoUrl: string, pullNumber: number) => {
+    const qs = new URLSearchParams({ repoUrl });
+    return request<GithubPullRequestDetailDTO>(
+      `/api/admin/github/prs/${pullNumber}?${qs.toString()}`
+    );
+  },
+  submitGithubPrReview: (pullNumber: number, data: SubmitPrReviewInput) =>
+    request<GithubPullRequestReviewDTO>(
+      `/api/admin/github/prs/${pullNumber}/reviews`,
+      {
+        method: "POST",
+        body: JSON.stringify(data),
+      }
+    ),
+  createGithubPrComment: (pullNumber: number, data: CreatePrCommentInput) =>
+    request<GithubPullRequestCommentDTO>(
+      `/api/admin/github/prs/${pullNumber}/comments`,
+      {
+        method: "POST",
+        body: JSON.stringify(data),
+      }
+    ),
+  mergeGithubPr: (pullNumber: number, data: MergePrInput) =>
+    request<MergePrResultDTO>(`/api/admin/github/prs/${pullNumber}/merge`, {
       method: "POST",
       body: JSON.stringify(data),
     }),

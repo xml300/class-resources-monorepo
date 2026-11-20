@@ -12,6 +12,7 @@ import {
   ArrowUp,
   ArrowDown,
   Code2,
+  DownloadCloud,
   ExternalLink,
   Eye,
   EyeOff,
@@ -43,6 +44,7 @@ import {
   PublishControl,
   PublishStatusBadge,
 } from "../components/PublishControl";
+import { PullFromGithubModal } from "../components/PullFromGithubModal";
 import { PushToGithubModal } from "../components/PushToGithubModal";
 import {
   formatBytes,
@@ -85,6 +87,10 @@ export function AdminDayResourcesPage() {
   );
   const [pushModalResource, setPushModalResource] =
     useState<ResourceDTO | null>(null);
+  const [pullModalState, setPullModalState] = useState<{
+    open: boolean;
+    resource: ResourceDTO | null;
+  }>({ open: false, resource: null });
   const [form, setForm] = useState<ResourceFormState>({
     title: "",
     description: "",
@@ -521,6 +527,14 @@ export function AdminDayResourcesPage() {
         <div className="flex flex-wrap items-center gap-2">
           <button
             type="button"
+            onClick={() => setPullModalState({ open: true, resource: null })}
+            className="inline-flex items-center gap-2 rounded-lg border border-zinc-700 bg-zinc-950 px-4 py-2 text-sm font-semibold text-zinc-200 hover:border-emerald-700 hover:text-emerald-300"
+          >
+            <DownloadCloud className="h-4 w-4 text-emerald-400" />
+            Pull from GitHub
+          </button>
+          <button
+            type="button"
             onClick={() => openCreateModal("folder")}
             className="inline-flex items-center gap-2 rounded-lg border border-emerald-700/70 bg-emerald-950/70 px-4 py-2 text-sm font-semibold text-emerald-200 hover:bg-emerald-900/70"
           >
@@ -632,6 +646,19 @@ export function AdminDayResourcesPage() {
                   </div>
 
                   <div className="flex shrink-0 items-center gap-1.5">
+                    {res.type === "CODE" && (
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setPullModalState({ open: true, resource: res })
+                        }
+                        title="Pull & sync latest files from GitHub"
+                        className="inline-flex items-center gap-1.5 rounded-lg border border-zinc-700 bg-zinc-950 px-2.5 py-2 text-xs font-medium text-zinc-200 hover:border-emerald-700 hover:text-emerald-300"
+                      >
+                        <DownloadCloud className="h-3.5 w-3.5 text-emerald-400" />
+                        <span className="hidden sm:inline">Pull</span>
+                      </button>
+                    )}
                     {canPushToGithub && (
                       <button
                         type="button"
@@ -1208,6 +1235,19 @@ export function AdminDayResourcesPage() {
           githubStatus={githubStatus}
           onClose={() => setPushModalResource(null)}
           onPushed={() => {
+            void loadDay();
+          }}
+        />
+      )}
+
+      {pullModalState.open && (
+        <PullFromGithubModal
+          resource={pullModalState.resource}
+          dayId={day.id}
+          dayNumber={day.dayNumber}
+          githubStatus={githubStatus}
+          onClose={() => setPullModalState({ open: false, resource: null })}
+          onPulled={() => {
             void loadDay();
           }}
         />
