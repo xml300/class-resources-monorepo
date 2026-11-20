@@ -5,6 +5,8 @@ import {
   Code2,
   ExternalLink,
   FileCode2,
+  FolderCode,
+  GitBranch,
   Search,
 } from "lucide-react";
 import {
@@ -279,12 +281,26 @@ export function CodePage() {
                     <span className="rounded-md border border-emerald-700/60 bg-emerald-900/80 px-2 py-0.5 text-xs font-semibold text-emerald-100">
                       Day {item.day.dayNumber}
                     </span>
-                    {item.resolvedLanguage && (
-                      <span className="rounded-full border border-emerald-800/60 bg-emerald-950/70 px-2.5 py-0.5 text-xs font-medium text-emerald-300">
-                        {CODE_LANGUAGE_LABELS[item.resolvedLanguage]}
+                    {(item.fileCount ?? 0) > 0 ? (
+                      <span className="inline-flex items-center gap-1 rounded-full border border-emerald-800/60 bg-emerald-950/70 px-2.5 py-0.5 text-xs font-medium text-emerald-300">
+                        <FolderCode className="h-3 w-3" />
+                        {item.fileCount}{" "}
+                        {item.fileCount === 1 ? "file" : "files"}
+                      </span>
+                    ) : (
+                      item.resolvedLanguage && (
+                        <span className="rounded-full border border-emerald-800/60 bg-emerald-950/70 px-2.5 py-0.5 text-xs font-medium text-emerald-300">
+                          {CODE_LANGUAGE_LABELS[item.resolvedLanguage]}
+                        </span>
+                      )
+                    )}
+                    {item.githubRepoUrl && (
+                      <span className="inline-flex items-center gap-1 rounded-full border border-zinc-700 bg-zinc-950 px-2 py-0.5 text-[11px] font-medium text-zinc-300">
+                        <GitBranch className="h-3 w-3 text-emerald-400" />
+                        GitHub
                       </span>
                     )}
-                    {lineCount !== null && (
+                    {lineCount !== null && (item.fileCount ?? 0) === 0 && (
                       <span className="text-xs text-zinc-500">
                         {lineCount} {lineCount === 1 ? "line" : "lines"}
                       </span>

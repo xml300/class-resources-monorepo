@@ -3,13 +3,18 @@ import type {
   CreateMiniProjectInput,
   CreateResourceInput,
   DayWithResourcesDTO,
+  GithubStatusDTO,
   LoginInput,
   MiniProjectDTO,
+  PushResourceToGithubInput,
+  PushToGithubResultDTO,
   ResourceDTO,
+  ResourceFileDTO,
   ResourceWithDayDTO,
   UpdateDayInput,
   UpdateMiniProjectInput,
   UpdateResourceInput,
+  UploadCodeFolderFilesInput,
 } from "@repo/shared";
 
 export class ApiError extends Error {
@@ -159,6 +164,22 @@ export const api = {
   deleteResource: (id: string) =>
     request<{ deleted: boolean; id: string }>(`/api/admin/resources/${id}`, {
       method: "DELETE",
+    }),
+  getAdminResourceFiles: (id: string) =>
+    request<ResourceFileDTO[]>(`/api/admin/resources/${id}/files`),
+  replaceResourceFiles: (id: string, data: UploadCodeFolderFilesInput) =>
+    request<{ fileCount: number; files: ResourceFileDTO[] }>(
+      `/api/admin/resources/${id}/files`,
+      {
+        method: "PUT",
+        body: JSON.stringify(data),
+      }
+    ),
+  getGithubStatus: () => request<GithubStatusDTO>("/api/admin/github/status"),
+  pushResourceToGithub: (id: string, data: PushResourceToGithubInput) =>
+    request<PushToGithubResultDTO>(`/api/admin/resources/${id}/push-github`, {
+      method: "POST",
+      body: JSON.stringify(data),
     }),
 
   // Admin Mini Projects

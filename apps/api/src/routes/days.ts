@@ -30,15 +30,25 @@ const unlockRateLimiter = createRateLimiter({
     "Too many unlock requests from your device. Please wait a minute and try again.",
 });
 
+function serializePublicResource<
+  T extends Record<string, unknown> & { files?: Array<{ id: string }> }
+>(resource: T) {
+  const { files, ...rest } = resource;
+  return {
+    ...rest,
+    fileCount: Array.isArray(files) ? files.length : 0,
+  };
+}
+
 function serializePublicDay<
   T extends {
     id: string;
     passwordHash: string | null;
     summary: string | null;
-    resources: unknown[];
+    resources: Array<Record<string, unknown> & { files?: Array<{ id: string }> }>;
   },
 >(req: Request, day: T) {
-  const { passwordHash, ...rest } = day;
+  const { passwordHash, resources: dayResources, ...rest } = day;
   const hasPassword = Boolean(passwordHash);
   const unlocked = isDayUnlockedForRequest(req, { id: day.id, passwordHash });
 
@@ -54,6 +64,7 @@ function serializePublicDay<
 
   return {
     ...rest,
+    resources: dayResources.map(serializePublicResource),
     hasPassword,
     isLocked: false,
   };
@@ -72,6 +83,11 @@ daysRouter.get("/", async (req, res, next) => {
             lte(resources.publishedAt, now)
           ),
           orderBy: [asc(resources.order), asc(resources.createdAt)],
+          with: {
+            files: {
+              columns: { id: true },
+            },
+          },
         },
       },
     });
@@ -98,6 +114,11 @@ daysRouter.get("/:id", async (req, res, next) => {
             lte(resources.publishedAt, now)
           ),
           orderBy: [asc(resources.order), asc(resources.createdAt)],
+          with: {
+            files: {
+              columns: { id: true },
+            },
+          },
         },
       },
     });
@@ -259,6 +280,11 @@ daysRouter.post("/:id/refresh", async (req, res, next) => {
             lte(resources.publishedAt, now)
           ),
           orderBy: [asc(resources.order), asc(resources.createdAt)],
+          with: {
+            files: {
+              columns: { id: true },
+            },
+          },
         },
       },
     });
@@ -302,6 +328,11 @@ daysRouter.post("/:id/refresh", async (req, res, next) => {
             lte(resources.publishedAt, now)
           ),
           orderBy: [asc(resources.order), asc(resources.createdAt)],
+          with: {
+            files: {
+              columns: { id: true },
+            },
+          },
         },
       },
     });

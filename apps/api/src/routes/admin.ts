@@ -10,12 +10,17 @@ import {
   updateResourceSchema,
   createMiniProjectSchema,
   updateMiniProjectSchema,
+  uploadCodeFolderFilesSchema,
+  pushResourceToGithubSchema,
+  inferCodeLanguage,
 } from "@repo/shared";
 import { db } from "../db/index.js";
-import { days, resources, miniProjects } from "../db/schema.js";
+import { days, resources, resourceFiles, miniProjects } from "../db/schema.js";
+import { env } from "../env.js";
 import { requireAdmin } from "../middleware/auth.js";
 import { hashDayPassword } from "../lib/dayPassword.js";
 import { syncFromDrive } from "../services/driveSync.js";
+import { GithubPushError, pushFilesToGithub } from "../services/githubPush.js";
 
 export const adminRouter = Router();
 
@@ -41,14 +46,41 @@ const upload = multer({
   limits: { fileSize: 25 * 1024 * 1024 },
 });
 
-function serializeAdminDay<T extends { passwordHash: string | null }>(day: T) {
-  const { passwordHash, ...rest } = day;
+function serializeAdminResource<
+  T extends { files?: Array<{ id: string }> }
+>(resource: T) {
+  const { files, ...rest } = resource;
   return {
     ...rest,
+    fileCount: files ? files.length : 0,
+  };
+}
+
+function serializeAdminDay<
+  T extends {
+    passwordHash: string | null;
+    resources?: Array<{ files?: Array<{ id: string }> }>;
+  }
+>(day: T) {
+  const { passwordHash, resources: dayResources, ...rest } = day;
+  return {
+    ...rest,
+    ...(dayResources !== undefined
+      ? { resources: dayResources.map(serializeAdminResource) }
+      : {}),
     hasPassword: Boolean(passwordHash),
     isLocked: false,
   };
 }
+
+// GitHub integration status
+adminRouter.get("/github/status", (_req, res) => {
+  res.json({
+    configured: Boolean(env.GITHUB_TOKEN.trim()),
+    defaultRepoUrl: env.GITHUB_DEFAULT_REPO.trim() || null,
+    defaultBranch: env.GITHUB_DEFAULT_BRANCH.trim() || "main",
+  });
+});
 
 // List all days (including drafts) with all resources
 adminRouter.get("/days", async (_req, res, next) => {
@@ -58,6 +90,11 @@ adminRouter.get("/days", async (_req, res, next) => {
       with: {
         resources: {
           orderBy: [asc(resources.order), asc(resources.createdAt)],
+          with: {
+            files: {
+              columns: { id: true },
+            },
+          },
         },
       },
     });
@@ -75,6 +112,11 @@ adminRouter.get("/days/:id", async (req, res, next) => {
       with: {
         resources: {
           orderBy: [asc(resources.order), asc(resources.createdAt)],
+          with: {
+            files: {
+              columns: { id: true },
+            },
+          },
         },
       },
     });
@@ -284,24 +326,51 @@ adminRouter.post("/days/:dayId/resources", async (req, res, next) => {
       content,
       language,
       filename,
+      runCommand,
+      githubRepoUrl,
+      githubBranch,
+      githubPath,
+      files,
       order,
       publishedAt,
     } = parsed.data;
-    const [created] = await db
-      .insert(resources)
-      .values({
-        dayId: req.params.dayId,
-        title,
-        description: description ?? null,
-        type,
-        url: url ?? null,
-        content: content ?? null,
-        language: language ?? null,
-        filename: filename ?? null,
-        order,
-        publishedAt: publishedAt ? new Date(publishedAt) : null,
-      })
-      .returning();
+
+    const created = await db.transaction(async (tx) => {
+      const [resource] = await tx
+        .insert(resources)
+        .values({
+          dayId: req.params.dayId,
+          title,
+          description: description ?? null,
+          type,
+          url: url ?? null,
+          content: content ?? null,
+          language: language ?? null,
+          filename: filename ?? null,
+          runCommand: runCommand ?? null,
+          githubRepoUrl: githubRepoUrl ?? null,
+          githubBranch: githubBranch ?? null,
+          githubPath: githubPath ?? null,
+          order,
+          publishedAt: publishedAt ? new Date(publishedAt) : null,
+        })
+        .returning();
+
+      if (files && files.length > 0) {
+        const deduped = new Map(files.map((f) => [f.path, f]));
+        const fileRows = Array.from(deduped.values()).map((f) => ({
+          resourceId: resource.id,
+          path: f.path,
+          content: f.content,
+          language: f.language ?? inferCodeLanguage(f.path, null),
+          sizeBytes: Buffer.byteLength(f.content, "utf-8"),
+        }));
+        await tx.insert(resourceFiles).values(fileRows);
+        return { ...resource, fileCount: fileRows.length };
+      }
+
+      return { ...resource, fileCount: 0 };
+    });
 
     res.status(201).json(created);
   } catch (err) {
@@ -323,6 +392,11 @@ adminRouter.patch("/resources/:id", async (req, res, next) => {
 
     const existing = await db.query.resources.findFirst({
       where: eq(resources.id, req.params.id),
+      with: {
+        files: {
+          columns: { id: true },
+        },
+      },
     });
     if (!existing) {
       res.status(404).json({ error: "Resource not found" });
@@ -335,10 +409,14 @@ adminRouter.patch("/resources/:id", async (req, res, next) => {
       parsed.data.content !== undefined
         ? (parsed.data.content ?? null)
         : existing.content;
+    const nextHasFiles =
+      parsed.data.files !== undefined
+        ? parsed.data.files.length > 0
+        : existing.files.length > 0;
 
-    if (!nextUrl && !nextContent) {
+    if (!nextUrl && !nextContent && !nextHasFiles) {
       res.status(400).json({
-        error: "URL, uploaded file, or pasted code is required",
+        error: "URL, uploaded file, pasted code, or code folder is required",
       });
       return;
     }
@@ -357,20 +435,215 @@ adminRouter.patch("/resources/:id", async (req, res, next) => {
       updates.language = parsed.data.language ?? null;
     if (parsed.data.filename !== undefined)
       updates.filename = parsed.data.filename ?? null;
+    if (parsed.data.runCommand !== undefined)
+      updates.runCommand = parsed.data.runCommand ?? null;
+    if (parsed.data.githubRepoUrl !== undefined)
+      updates.githubRepoUrl = parsed.data.githubRepoUrl ?? null;
+    if (parsed.data.githubBranch !== undefined)
+      updates.githubBranch = parsed.data.githubBranch ?? null;
+    if (parsed.data.githubPath !== undefined)
+      updates.githubPath = parsed.data.githubPath ?? null;
     if (parsed.data.order !== undefined) updates.order = parsed.data.order;
     if (parsed.data.publishedAt !== undefined)
       updates.publishedAt = parsed.data.publishedAt
         ? new Date(parsed.data.publishedAt)
         : null;
 
-    const [updated] = await db
-      .update(resources)
-      .set(updates)
-      .where(eq(resources.id, req.params.id))
-      .returning();
+    const updated = await db.transaction(async (tx) => {
+      const [row] = await tx
+        .update(resources)
+        .set(updates)
+        .where(eq(resources.id, req.params.id))
+        .returning();
+
+      let fileCount = existing.files.length;
+      if (parsed.data.files !== undefined) {
+        await tx
+          .delete(resourceFiles)
+          .where(eq(resourceFiles.resourceId, req.params.id));
+
+        if (parsed.data.files.length > 0) {
+          const deduped = new Map(parsed.data.files.map((f) => [f.path, f]));
+          const fileRows = Array.from(deduped.values()).map((f) => ({
+            resourceId: req.params.id,
+            path: f.path,
+            content: f.content,
+            language: f.language ?? inferCodeLanguage(f.path, null),
+            sizeBytes: Buffer.byteLength(f.content, "utf-8"),
+          }));
+          await tx.insert(resourceFiles).values(fileRows);
+          fileCount = fileRows.length;
+        } else {
+          fileCount = 0;
+        }
+      }
+
+      return { ...row, fileCount };
+    });
 
     res.json(updated);
   } catch (err) {
+    next(err);
+  }
+});
+
+// Get all files for a code folder resource
+adminRouter.get("/resources/:id/files", async (req, res, next) => {
+  try {
+    const existing = await db.query.resources.findFirst({
+      where: eq(resources.id, req.params.id),
+      columns: { id: true },
+    });
+    if (!existing) {
+      res.status(404).json({ error: "Resource not found" });
+      return;
+    }
+
+    const files = await db.query.resourceFiles.findMany({
+      where: eq(resourceFiles.resourceId, req.params.id),
+      orderBy: [asc(resourceFiles.path)],
+    });
+
+    res.json(files);
+  } catch (err) {
+    next(err);
+  }
+});
+
+// Replace all files for a code folder resource
+adminRouter.put("/resources/:id/files", async (req, res, next) => {
+  try {
+    const parsed = uploadCodeFolderFilesSchema.safeParse(req.body);
+    if (!parsed.success) {
+      res.status(400).json({
+        error: "Validation failed",
+        details: parsed.error.flatten().fieldErrors,
+      });
+      return;
+    }
+
+    const existing = await db.query.resources.findFirst({
+      where: eq(resources.id, req.params.id),
+    });
+    if (!existing) {
+      res.status(404).json({ error: "Resource not found" });
+      return;
+    }
+
+    const deduped = new Map(parsed.data.files.map((f) => [f.path, f]));
+    const fileRows = Array.from(deduped.values()).map((f) => ({
+      resourceId: req.params.id,
+      path: f.path,
+      content: f.content,
+      language: f.language ?? inferCodeLanguage(f.path, null),
+      sizeBytes: Buffer.byteLength(f.content, "utf-8"),
+    }));
+
+    const savedFiles = await db.transaction(async (tx) => {
+      await tx
+        .delete(resourceFiles)
+        .where(eq(resourceFiles.resourceId, req.params.id));
+
+      const inserted = await tx
+        .insert(resourceFiles)
+        .values(fileRows)
+        .returning();
+
+      const resourceUpdates: Record<string, unknown> = {
+        updatedAt: new Date(),
+      };
+      if (parsed.data.runCommand !== undefined) {
+        resourceUpdates.runCommand = parsed.data.runCommand ?? null;
+      }
+      await tx
+        .update(resources)
+        .set(resourceUpdates)
+        .where(eq(resources.id, req.params.id));
+
+      return inserted;
+    });
+
+    savedFiles.sort((a, b) => a.path.localeCompare(b.path));
+    res.json({ fileCount: savedFiles.length, files: savedFiles });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// Push a code resource (folder or snippet) to GitHub
+adminRouter.post("/resources/:id/push-github", async (req, res, next) => {
+  try {
+    const parsed = pushResourceToGithubSchema.safeParse(req.body);
+    if (!parsed.success) {
+      res.status(400).json({
+        error: "Validation failed",
+        details: parsed.error.flatten().fieldErrors,
+      });
+      return;
+    }
+
+    const resource = await db.query.resources.findFirst({
+      where: eq(resources.id, req.params.id),
+      with: {
+        day: {
+          columns: { dayNumber: true, title: true },
+        },
+        files: {
+          orderBy: [asc(resourceFiles.path)],
+        },
+      },
+    });
+
+    if (!resource) {
+      res.status(404).json({ error: "Resource not found" });
+      return;
+    }
+
+    let filesToPush: Array<{ path: string; content: string }> =
+      resource.files.map((f) => ({ path: f.path, content: f.content }));
+
+    if (filesToPush.length === 0 && resource.content) {
+      const fallbackName =
+        resource.filename ||
+        `${resource.title.toLowerCase().replace(/[^a-z0-9]+/g, "-") || "snippet"}.txt`;
+      filesToPush = [{ path: fallbackName, content: resource.content }];
+    }
+
+    if (filesToPush.length === 0) {
+      res.status(400).json({
+        error:
+          "This resource has no uploaded folder files or code content to push to GitHub.",
+      });
+      return;
+    }
+
+    const defaultCommitMessage = `Day ${resource.day.dayNumber}: ${resource.title}`;
+    const result = await pushFilesToGithub({
+      repoUrl: parsed.data.repoUrl,
+      branch: parsed.data.branch,
+      targetPath: parsed.data.targetPath,
+      commitMessage: parsed.data.commitMessage || defaultCommitMessage,
+      files: filesToPush,
+    });
+
+    await db
+      .update(resources)
+      .set({
+        githubRepoUrl: result.repoUrl,
+        githubBranch: result.branch,
+        githubPath: result.targetPath,
+        githubCommitSha: result.commitSha,
+        githubPushedAt: new Date(result.pushedAt),
+        updatedAt: new Date(),
+      })
+      .where(eq(resources.id, resource.id));
+
+    res.json(result);
+  } catch (err) {
+    if (err instanceof GithubPushError) {
+      res.status(err.status).json({ error: err.message });
+      return;
+    }
     next(err);
   }
 });

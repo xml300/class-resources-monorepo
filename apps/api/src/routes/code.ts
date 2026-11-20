@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { and, asc, eq, isNotNull, lte } from "drizzle-orm";
 import { db } from "../db/index.js";
-import { resources } from "../db/schema.js";
+import { resourceFiles, resources } from "../db/schema.js";
 import { isDayUnlockedForRequest } from "../lib/dayPassword.js";
 
 export const codeRouter = Router();
@@ -40,6 +40,9 @@ codeRouter.get("/", async (req, res, next) => {
             passwordHash: true,
           },
         },
+        files: {
+          columns: { id: true },
+        },
       },
     });
 
@@ -64,8 +67,9 @@ codeRouter.get("/", async (req, res, next) => {
         }
         return a.createdAt.getTime() - b.createdAt.getTime();
       })
-      .map(({ day, ...resource }) => ({
+      .map(({ day, files, ...resource }) => ({
         ...resource,
+        fileCount: files.length,
         day: {
           id: day.id,
           dayNumber: day.dayNumber,
@@ -99,6 +103,9 @@ codeRouter.get("/:id", async (req, res, next) => {
             passwordHash: true,
           },
         },
+        files: {
+          orderBy: [asc(resourceFiles.path)],
+        },
       },
     });
 
@@ -116,9 +123,11 @@ codeRouter.get("/:id", async (req, res, next) => {
       return;
     }
 
-    const { day, ...resource } = row;
+    const { day, files, ...resource } = row;
     res.json({
       ...resource,
+      fileCount: files.length,
+      files,
       day: {
         id: day.id,
         dayNumber: day.dayNumber,

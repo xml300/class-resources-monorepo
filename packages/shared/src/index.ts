@@ -157,6 +157,79 @@ export function inferCodeLanguage(
   return LANGUAGE_ALIAS_MAP[ext] ?? null;
 }
 
+export const resourceFileInputSchema = z.object({
+  path: z
+    .string()
+    .trim()
+    .min(1, "File path is required")
+    .max(500)
+    .refine(
+      (p) =>
+        !p.startsWith("/") &&
+        !p.includes("\\") &&
+        !p.split("/").some((seg) => seg === ".." || seg === "."),
+      "Invalid relative file path"
+    ),
+  content: z.string().max(1_000_000),
+  language: z
+    .string()
+    .trim()
+    .max(50)
+    .nullable()
+    .optional()
+    .transform((val) => (val && val.length > 0 ? val : null)),
+});
+
+export type ResourceFileInput = z.infer<typeof resourceFileInputSchema>;
+
+export const uploadCodeFolderFilesSchema = z.object({
+  files: z
+    .array(resourceFileInputSchema)
+    .min(1, "At least one file is required")
+    .max(500, "Maximum 500 files per folder"),
+  runCommand: z
+    .string()
+    .trim()
+    .max(300)
+    .nullable()
+    .optional()
+    .transform((val) => (val && val.length > 0 ? val : null)),
+});
+
+export type UploadCodeFolderFilesInput = z.infer<
+  typeof uploadCodeFolderFilesSchema
+>;
+
+export const pushResourceToGithubSchema = z.object({
+  repoUrl: z
+    .string()
+    .trim()
+    .min(1, "GitHub repository URL is required")
+    .max(500),
+  branch: z
+    .string()
+    .trim()
+    .max(100)
+    .optional()
+    .transform((val) => (val && val.length > 0 ? val : undefined)),
+  targetPath: z
+    .string()
+    .trim()
+    .max(300)
+    .optional()
+    .default(""),
+  commitMessage: z
+    .string()
+    .trim()
+    .max(300)
+    .optional()
+    .transform((val) => (val && val.length > 0 ? val : undefined)),
+});
+
+export type PushResourceToGithubInput = z.infer<
+  typeof pushResourceToGithubSchema
+>;
+
 const resourceFieldsSchema = z.object({
   title: z.string().trim().min(1, "Title is required").max(200),
   description: z.string().trim().max(1000).nullable().optional(),
@@ -188,17 +261,50 @@ const resourceFieldsSchema = z.object({
     .nullable()
     .optional()
     .transform((val) => (val && val.length > 0 ? val : null)),
+  runCommand: z
+    .string()
+    .trim()
+    .max(300)
+    .nullable()
+    .optional()
+    .transform((val) => (val && val.length > 0 ? val : null)),
+  githubRepoUrl: z
+    .string()
+    .trim()
+    .max(500)
+    .nullable()
+    .optional()
+    .transform((val) => (val && val.length > 0 ? val : null)),
+  githubBranch: z
+    .string()
+    .trim()
+    .max(100)
+    .nullable()
+    .optional()
+    .transform((val) => (val && val.length > 0 ? val : null)),
+  githubPath: z
+    .string()
+    .trim()
+    .max(300)
+    .nullable()
+    .optional()
+    .transform((val) => (val && val.length > 0 ? val : null)),
+  files: z
+    .array(resourceFileInputSchema)
+    .max(500, "Maximum 500 files per folder")
+    .optional(),
   order: z.coerce.number().int().min(0).optional().default(0),
   publishedAt: z.string().nullable().optional(),
 });
 
 export const createResourceSchema = resourceFieldsSchema.superRefine(
   (data, ctx) => {
-    if (!data.url && !data.content) {
+    const hasFiles = Array.isArray(data.files) && data.files.length > 0;
+    if (!data.url && !data.content && !hasFiles) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         path: ["url"],
-        message: "URL, uploaded file, or pasted code is required",
+        message: "URL, uploaded file, pasted code, or code folder is required",
       });
     }
   }
@@ -255,6 +361,36 @@ export type CreateMiniProjectInput = z.infer<typeof createMiniProjectSchema>;
 export type UpdateMiniProjectInput = z.infer<typeof updateMiniProjectSchema>;
 export type LoginInput = z.infer<typeof loginSchema>;
 
+export interface ResourceFileDTO {
+  id: string;
+  resourceId: string;
+  path: string;
+  content: string;
+  language: string | null;
+  sizeBytes: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface PushToGithubResultDTO {
+  repoUrl: string;
+  owner: string;
+  repo: string;
+  branch: string;
+  targetPath: string;
+  folderUrl: string;
+  commitSha: string;
+  commitUrl: string;
+  filesPushed: number;
+  pushedAt: string;
+}
+
+export interface GithubStatusDTO {
+  configured: boolean;
+  defaultRepoUrl: string | null;
+  defaultBranch: string;
+}
+
 export interface ResourceDTO {
   id: string;
   dayId: string;
@@ -265,6 +401,14 @@ export interface ResourceDTO {
   content: string | null;
   language: string | null;
   filename: string | null;
+  runCommand?: string | null;
+  githubRepoUrl?: string | null;
+  githubBranch?: string | null;
+  githubPath?: string | null;
+  githubCommitSha?: string | null;
+  githubPushedAt?: string | null;
+  fileCount?: number;
+  files?: ResourceFileDTO[];
   order: number;
   publishedAt: string | null;
   createdAt: string;

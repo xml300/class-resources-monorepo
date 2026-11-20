@@ -13,4 +13,7 @@ export const env = {
   GOOGLE_DRIVE_API_KEY: process.env.GOOGLE_DRIVE_API_KEY || "",
   GOOGLE_DRIVE_FOLDER_ID:
     process.env.GOOGLE_DRIVE_FOLDER_ID || "1SkCEz1qZHb-qFAvo9pJm8_Agc8QXDdFl",
+  GITHUB_TOKEN: process.env.GITHUB_TOKEN || "",
+  GITHUB_DEFAULT_REPO: process.env.GITHUB_DEFAULT_REPO || "",
+  GITHUB_DEFAULT_BRANCH: process.env.GITHUB_DEFAULT_BRANCH || "main",
 };

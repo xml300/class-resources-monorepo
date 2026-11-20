@@ -503,7 +503,7 @@ async function getHotWorker(wc: WebContainer): Promise<HotWorker> {
   return workerPromise;
 }
 
-export async function getWebContainer(
+export async function bootSharedWebContainer(
   onStatus?: (status: RunnerStatus) => void
 ): Promise<WebContainer> {
   const support = isWebContainerSupported();
@@ -519,7 +519,13 @@ export async function getWebContainer(
     });
   }
 
-  const instance = await bootPromise;
+  return bootPromise;
+}
+
+export async function getWebContainer(
+  onStatus?: (status: RunnerStatus) => void
+): Promise<WebContainer> {
+  const instance = await bootSharedWebContainer(onStatus);
   await getHotWorker(instance);
   onStatus?.("ready");
   return instance;

@@ -383,6 +383,7 @@ export function HomePage() {
                 }
 
                 if (resource.type === "CODE") {
+                  const isFolder = (resource.fileCount ?? 0) > 0;
                   const resolvedLang = inferCodeLanguage(
                     resource.filename || resource.url,
                     resource.language
@@ -397,12 +398,19 @@ export function HomePage() {
                       <div className="min-w-0 flex-1">
                         <div className="flex flex-wrap items-center gap-2.5">
                           <ResourceBadge type={resource.type} />
-                          {resolvedLang && (
-                            <span className="rounded-md border border-zinc-700 bg-zinc-800/80 px-2 py-0.5 text-[11px] font-medium text-emerald-300">
-                              {CODE_LANGUAGE_LABELS[resolvedLang]}
+                          {isFolder ? (
+                            <span className="rounded-md border border-emerald-800/60 bg-emerald-950/70 px-2 py-0.5 text-[11px] font-medium text-emerald-300">
+                              {resource.fileCount}{" "}
+                              {resource.fileCount === 1 ? "file" : "files"}
                             </span>
+                          ) : (
+                            resolvedLang && (
+                              <span className="rounded-md border border-zinc-700 bg-zinc-800/80 px-2 py-0.5 text-[11px] font-medium text-emerald-300">
+                                {CODE_LANGUAGE_LABELS[resolvedLang]}
+                              </span>
+                            )
                           )}
-                          {resource.filename && (
+                          {!isFolder && resource.filename && (
                             <span className="font-mono text-xs text-zinc-400">
                               {resource.filename}
                             </span>
@@ -418,7 +426,7 @@ export function HomePage() {
                         )}
                       </div>
                       <span className="mt-0.5 inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-zinc-700 bg-zinc-800/90 px-3 py-1.5 text-xs font-medium text-zinc-200 transition group-hover:border-emerald-700 group-hover:bg-emerald-950/60 group-hover:text-emerald-200">
-                        View Code
+                        {isFolder ? "Open Workspace" : "View Code"}
                         <ArrowRight className="h-3.5 w-3.5" />
                       </span>
                     </Link>

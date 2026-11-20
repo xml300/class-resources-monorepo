@@ -6,6 +6,7 @@ import {
   Code2,
   ExternalLink,
   FileCode2,
+  FolderCode,
 } from "lucide-react";
 import {
   CODE_LANGUAGE_LABELS,
@@ -15,6 +16,7 @@ import {
 import { api } from "../lib/api";
 import { useDays } from "../context/DaysContext";
 import { CodeBlock } from "../components/CodeBlock";
+import { CodeFolderWorkspace } from "../components/CodeFolderWorkspace";
 import { StudentSidebar, useStudentSidebar } from "../layouts/StudentLayout";
 
 function isFetchableCodeUrl(url: string | null): boolean {
@@ -123,6 +125,8 @@ export function CodeDetailPage() {
     );
   }
 
+  const folderFiles = resource.files ?? [];
+  const isCodeFolder = folderFiles.length > 0;
   const resolvedLanguage = inferCodeLanguage(
     resource.filename || resource.url,
     resource.language
@@ -157,6 +161,7 @@ export function CodeDetailPage() {
                 item.filename || item.url,
                 item.language
               );
+              const itemIsFolder = (item.fileCount ?? 0) > 0;
               return (
                 <li key={item.id}>
                   <Link
@@ -168,18 +173,30 @@ export function CodeDetailPage() {
                         : "text-zinc-300 hover:bg-zinc-800/80 hover:text-emerald-300"
                     }`}
                   >
-                    <FileCode2
-                      className={`mt-0.5 h-4 w-4 shrink-0 ${
-                        isCurrent ? "text-emerald-400" : "text-zinc-500"
-                      }`}
-                    />
+                    {itemIsFolder ? (
+                      <FolderCode
+                        className={`mt-0.5 h-4 w-4 shrink-0 ${
+                          isCurrent ? "text-emerald-400" : "text-zinc-500"
+                        }`}
+                      />
+                    ) : (
+                      <FileCode2
+                        className={`mt-0.5 h-4 w-4 shrink-0 ${
+                          isCurrent ? "text-emerald-400" : "text-zinc-500"
+                        }`}
+                      />
+                    )}
                     <div className="min-w-0 flex-1">
                       <p className="truncate text-xs font-medium">
                         {item.title}
                       </p>
                       <p className="text-[11px] text-zinc-500">
                         Day {item.day.dayNumber}
-                        {lang ? ` • ${CODE_LANGUAGE_LABELS[lang]}` : ""}
+                        {itemIsFolder
+                          ? ` • ${item.fileCount} files`
+                          : lang
+                            ? ` • ${CODE_LANGUAGE_LABELS[lang]}`
+                            : ""}
                       </p>
                     </div>
                   </Link>
@@ -210,10 +227,20 @@ export function CodeDetailPage() {
       <div className="rounded-2xl border border-zinc-800 bg-zinc-900/80 p-6 sm:p-8">
         <div className="flex flex-wrap items-center gap-2.5">
           <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-800/60 bg-emerald-950/70 px-2.5 py-0.5 text-xs font-medium text-emerald-300">
-            <Code2 className="h-3.5 w-3.5" />
-            {resolvedLanguage
-              ? CODE_LANGUAGE_LABELS[resolvedLanguage]
-              : "Code"}
+            {isCodeFolder ? (
+              <>
+                <FolderCode className="h-3.5 w-3.5" />
+                Code Folder • {folderFiles.length}{" "}
+                {folderFiles.length === 1 ? "file" : "files"}
+              </>
+            ) : (
+              <>
+                <Code2 className="h-3.5 w-3.5" />
+                {resolvedLanguage
+                  ? CODE_LANGUAGE_LABELS[resolvedLanguage]
+                  : "Code"}
+              </>
+            )}
           </span>
           <Link
             to={`/?day=${resource.day.dayNumber}`}
@@ -221,7 +248,7 @@ export function CodeDetailPage() {
           >
             Day {resource.day.dayNumber}: {resource.day.title}
           </Link>
-          {inferredFilename && (
+          {inferredFilename && !isCodeFolder && (
             <span className="rounded-md border border-zinc-800 bg-zinc-950 px-2.5 py-0.5 font-mono text-xs text-zinc-300">
               {inferredFilename}
             </span>
@@ -237,7 +264,7 @@ export function CodeDetailPage() {
           </p>
         )}
 
-        {resource.url && (
+        {resource.url && !isCodeFolder && (
           <div className="mt-5 flex flex-wrap items-center gap-2 border-t border-zinc-800 pt-4">
             <a
               href={resource.url}
@@ -253,7 +280,9 @@ export function CodeDetailPage() {
       </div>
 
       {/* Code Viewer */}
-      {fetchingRemote ? (
+      {isCodeFolder ? (
+        <CodeFolderWorkspace resource={resource} files={folderFiles} />
+      ) : fetchingRemote ? (
         <div className="flex items-center justify-center gap-2 rounded-2xl border border-zinc-800 bg-zinc-900/60 p-12 text-sm text-zinc-400">
           <div className="h-5 w-5 animate-spin rounded-full border-2 border-emerald-500 border-t-transparent" />
           Loading code file...

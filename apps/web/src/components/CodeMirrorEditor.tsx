@@ -10,7 +10,7 @@ import { oneDark } from "@codemirror/theme-one-dark";
 interface CodeMirrorEditorProps {
   value: string;
   onChange: (nextValue: string) => void;
-  language?: "javascript" | "typescript" | "json";
+  language?: "javascript" | "typescript" | "jsx" | "tsx" | "json" | "plaintext";
   readOnly?: boolean;
   onRun?: () => void;
   className?: string;
@@ -76,8 +76,15 @@ export function CodeMirrorEditor({
 
     const langExt =
       language === "json"
-        ? json()
-        : javascript({ typescript: language === "typescript" });
+        ? [json()]
+        : language === "plaintext"
+          ? []
+          : [
+              javascript({
+                typescript: language === "typescript" || language === "tsx",
+                jsx: language === "jsx" || language === "tsx",
+              }),
+            ];
 
     const runKeymap = keymap.of([
       {
@@ -94,7 +101,7 @@ export function CodeMirrorEditor({
       doc: value,
       extensions: [
         basicSetup,
-        langExt,
+        ...langExt,
         oneDark,
         darkSurfaceTheme,
         runKeymap,
